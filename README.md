@@ -2,6 +2,8 @@
 
 > real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS.
 
+[demo](https://threejs-meydajs-fftspectrum.surge.sh)
+
 longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features, used to drive the _threejs_ webgl effect.
 
 - Start project with `npm run dev`
@@ -10,21 +12,21 @@ longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics fea
 
 What are audio features? [Read here](https://meyda.js.org/audio-features)
 
-## Installation
-
-install with
+## setup
 
 ```sh
 npm i
 ```
 
-dev mode expose at `http://localhost:3000`
+## dev
+
+(expose `http://localhost:3000` )
 
 ```sh
 npm run dev
 ```
 
-build with
+## build
 
 ```sh
 npm run build

@@ -45,7 +45,6 @@ export default class AudioExtractor {
         bufferSize: this.bufferSize,
         windowingFunction: "blackman"
       });
-      window.meyda = this.meyda
       this.meyda.start()
       !!this.onReady && this.onReady( this )
     }
@@ -55,10 +54,7 @@ export default class AudioExtractor {
         .getUserMedia(options)
         .then(successCallback)
         .catch(err =>{
-          navigator.getUserMedia(
-            {
-              audio: true,
-            },
+          navigator.getUserMedia( { audio: true },
             successCallback,
             errorCb
           );

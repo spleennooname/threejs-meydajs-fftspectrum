@@ -10,7 +10,16 @@ export default defineConfig(({ command, mode }) => {
     plugins: [],
     build: {
       // cssCodeSplit: true,
-      minify: 'esbuild'
+      minify: 'esbuild',
+      chunkSizeWarningLimit:1000,
+      rollupOptions:{
+        output:{
+          manualChunks: {
+            three: [ 'three' ],
+            meyda: [ 'meyda' ]
+          }
+        }
+      }
     }
   }
 })

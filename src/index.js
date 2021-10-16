@@ -13,6 +13,7 @@ import {
   LineBasicMaterial,
   WebGLRenderer,
   DirectionalLight,
+  ReinhardToneMapping,
   Box3,
   sRGBEncoding,
   ArrowHelper,
@@ -66,8 +67,11 @@ let scene = new Scene();
 
 const clock = new Clock();
 
+
+
 let camera = new PerspectiveCamera(75, aspectRatio, 5, 100);
 camera.position.set(0, -5, 10);
+camera.lookAt( 0, 0, 0 );
 
 let lineMaterial = new LineBasicMaterial({
   color: 0x00fff0,
@@ -80,6 +84,8 @@ let yellowMaterial = new LineBasicMaterial({
 let w = canvas.clientWidth * pixelRatio
 let h = canvas.clientHeight * pixelRatio
 
+let resolution = new Vector2(w, h)
+
 let renderer = new WebGLRenderer({
   canvas,
   antialias: true,
@@ -87,6 +93,7 @@ let renderer = new WebGLRenderer({
   powerPreference: "high-performance"
 });
 renderer.outputEncoding = sRGBEncoding
+renderer.toneMapping = ReinhardToneMapping;
 renderer.setPixelRatio(pixelRatio);
 
 const controls = new OrbitControls(camera, canvas);
@@ -111,7 +118,7 @@ const params = {
 
 const renderPass = new RenderPass(scene, camera);
 
-const bloomPass = new UnrealBloomPass(new Vector2(w, h), 0, 0, 0);
+const bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
 bloomPass.threshold = params.bloomThreshold;
 bloomPass.strength = params.bloomStrength;
 bloomPass.radius = params.bloomRadius;
@@ -119,9 +126,11 @@ bloomPass.radius = params.bloomRadius;
 const composer = new EffectComposer(renderer);
 composer.addPass(renderPass);
 composer.addPass(bloomPass);
+bloomPass.renderToScreen = true;
 
-let directionalLight = new DirectionalLight(0xffffff, 0.75);
-directionalLight.position.set(0, 1, 1);
+//console.log(bloomPass)
+//let directionalLight = new DirectionalLight(0xffffff, 0.75);
+//directionalLight.position.set(0, 1, 1);
 
 // Unchanging variables
 const length = 1;
@@ -136,8 +145,6 @@ let rolloffArrow = new ArrowHelper(dir, origin, length, 0x00ff00);
 let rmsArrow = new ArrowHelper(rightDir, origin, length, 0xff00ff);
 
 // init FFTs lines
-//
-
 
 let lines = new Group();
 for (let i = 0; i < ffts.length; i++) {
@@ -185,7 +192,8 @@ bufferLineGeometry.setAttribute("position", new BufferAttribute(new Float32Array
 bufferLineGeometry.setDrawRange(0, bufferSize);
 
 // add to scene
-scene.add(directionalLight);
+//scene.add(directionalLight);
+
 scene.add(centroidArrow);
 scene.add(rolloffArrow);
 scene.add(rmsArrow);
@@ -194,20 +202,21 @@ scene.add(lines);
 
 const resizeIfNeed = () => {
   const canvas = renderer.domElement;
-  let w = canvas.clientWidth * pixelRatio
+  let w = Math.floor(canvas.clientWidth * pixelRatio);
   let h = Math.floor((canvas.clientWidth * pixelRatio)/ aspectRatio)
   const needResize = canvas.width !== w || canvas.height !== h;
   if (needResize) {
+    bloomPass.resolution.set(w, h);
     renderer.setSize(w, h, false);
     composer.setSize(w, h);
-    camera.aspect = aspectRatio
+    camera.aspect = aspectRatio;
     camera.updateProjectionMatrix(); 
   } 
 }
 
 const render = () => {
   //
-  stats.begin();
+
 
   resizeIfNeed();
   
@@ -234,6 +243,7 @@ const render = () => {
       let positions = aPos.array;
       for (let j = 0, index = 0; j < ffts[i].length * 3; j++) {
         positions[index++] = 40.0 + 40 * Math.log10(j / ffts[i].length);
+        //
         positions[index++] = -10. + sharpness + (ffts[i][j]) * loudness;
         positions[index++] = - i * 1.1;
       }
@@ -249,13 +259,13 @@ const render = () => {
       );
     }
 
-    // render Spectral Rolloff Arrow
+    // render spectral rolloff Arrow
     if (features.spectralRolloff) {
       let rolloff = features.spectralRolloff / 22050;
       rolloffArrow.position.set(10.7 + 8 * Math.log10(rolloff), -6, -15);
     }
 
-    // render RMS Arrow
+    // render rms Arrow
     if (features.rms) {
       rmsArrow.position.set(-11, -5 + 10 * features.rms, -15);
     }
@@ -276,7 +286,7 @@ const render = () => {
   //
   composer.render();
 
-  stats.end()
+  stats.update()
 }
 
 const tick = () => {
@@ -288,7 +298,9 @@ const tick = () => {
 
 const audio = new AudioExtractor({
   bufferSize,
-  onComplete: audioExtractor => tick()
+  onComplete: audioExtractor => {
+    tick()
+  }
 })
 
 const btn = document.querySelector("#cover")
@@ -306,26 +318,10 @@ btn.addEventListener('click', e => {
   audio.start()
   // tl.set('#canvas', { opacity: 0 })
   tl.to('#cover', {
-    duration: 1.5,
+    duration: 2.0,
     autoAlpha: 0,
     top: "-20px",
     ease: 'power2.out',
     onComplete: () => { }
-  })
-  /* tl.to('#canvas',  { 
-    duration: 2, 
-    opacity: 1, 
-    ease: 'power2.out'}
-  , "-=1.8") *
-  tl.to(controls.target, { duration: 2,  x:0, y:0.5, z:0}, "-=2.0")
- /* tl.to(camera.rotation, {
-    duration: 2, 
-    x: 0,
-    y: 4,
-    z: 0, 
-    onUpdate: ()=>{
-      //camera.lookAt( center );
-    }
-  }, "-=1.0"  
-  //tl.to(camera.rotation, 1.0, { x:0, y:Math.PI/ 4, z:0 }, "-=1.0")*/
+  });
 }, { once: true }) 
