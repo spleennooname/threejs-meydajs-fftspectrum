@@ -1,0 +1,102 @@
+*,
+*:after,
+*:before {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  font-family: sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+body {
+  position: relative;
+  background: black;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizelegibility;
+  color: white;
+}
+
+.wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#canvas {
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  display: block;
+}
+
+.cover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  opacity: 0;
+  width: 100vw;
+  height: 100vh;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.cover pre {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+
+.credits{
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  padding: 0 0 20px 20px;
+  line-height: 18px;
+  color: white;
+  z-index: 3;
+}
+
+.credits > a{
+  color: #fefefe;
+  transition:  all 0.5s ease-out;
+}
+
+.credits > a:hover{
+  opacity: 0.5;
+}
+
+.f{
+  font-family: sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 10px;
+  line-height: 20px;
+  color: #fefefe;
+  letter-spacing: 2px;
+}
+
