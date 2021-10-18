@@ -2,6 +2,8 @@
 
 > real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS.
 
+[![Real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
+
 [demo](https://threejs-meydajs-fftspectrum.surge.sh)
 
 longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features, used to drive the _threejs_ webgl effect.
