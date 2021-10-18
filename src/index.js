@@ -40,6 +40,7 @@ import {
   Matrix4,
   MeshNormalMaterial,
   MeshLambertMaterial,
+  MeshPhongMaterial,
   BufferGeometryLoader
 } from "three"
 
@@ -166,28 +167,39 @@ const fftMat = new RawShaderMaterial({
   side: DoubleSide
 });
 
-const fftMat2 = new MeshNormalMaterial()
-const fftMat3 = new MeshLambertMaterial({ color: 0xff0000 })
-
+const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
+//const fftMatN = new MeshPhongMaterial({ shininess: 71, color: 0xffffff })
 // 1. INSTANCED MESH (test)
 
-const baseGeom = new BoxBufferGeometry(0.05)
-imesh = new InstancedMesh(baseGeom, fftMat2, bufferSize);
-imesh.instanceMatrix.setUsage(DynamicDrawUsage);
-imesh.position.set(-10, 0, 10)
-scene.add(imesh);
+/* const fftMatR = new RawShaderMaterial({
+  uniforms: {
+    color: {
+      value: colors[2]
+    }
+  },
+  vertexShader: vs,
+  fragmentShader: fs,
+  transparent: true,
+  side: DoubleSide
+}); */
 
+const baseGeom = new BoxBufferGeometry(0.5)
+imesh = new InstancedMesh(baseGeom, fftMatN, bufferSize);
+imesh.instanceMatrix.setUsage(DynamicDrawUsage);
+imesh.position.set(-8, 0, 0)
+imesh.scale.set(1,1,1)
+scene.add(imesh);
 
 // 2. INSTANCED MESH
  
-const fftGeom = new BufferGeometry();
+/* const fftGeom = new BufferGeometry();
 fftGeom.setAttribute("position", new BufferAttribute(new Float32Array(bufferSize * 3), 3));
 fftGeom.setDrawRange(0, bufferSize);
 imesh2 = new InstancedMesh(fftGeom, new MeshNormalMaterial(), numLines);
 imesh2.instanceMatrix.setUsage(DynamicDrawUsage);
 imesh2.position.set(0,0,0)
 imesh2.meshPerAttribute= numLines
-console.log(imesh2)
+console.log(imesh2) */
 // 3.
 
 let fftMeshes = new Group();
@@ -198,7 +210,7 @@ for (let i = 0; i < ffts.length; i++) {
     fftGeom.setAttribute("position", new BufferAttribute(new Float32Array(ffts[i].length * 3), 3));
     fftGeom.setDrawRange(0, ffts[i].length);
     //
-    const lineFFTMaterial = new RawShaderMaterial({
+    const fftMat = new RawShaderMaterial({
       uniforms: {
         color: {
           value: colors[ffts.length - i - 1]
@@ -270,10 +282,11 @@ const render = () => {
     ffts.unshift(features.amplitudeSpectrum);
     // 
     const loudness = invlerp(7, 40, features.loudness.total)
+    const rms = features.rms
     const sharpness = features.perceptualSharpness //invlerp(0.7, 4, features.perceptualSharpness)
     // affect blooming with sharpness and loudness 
-    bloomPass.strength = lerp(1, 1.7, loudness)
-    bloomPass.radius = lerp(1, 2.2, sharpness)
+    bloomPass.strength = lerp(1, 1.25, loudness)
+    bloomPass.radius = lerp(1, 2.5, sharpness)
 
     //console.time('loop')
     for (let i = 0; i < ffts.length; i++) {
@@ -281,13 +294,13 @@ const render = () => {
       for (let j = 0; j < ffts[i].length * 3; j++) {
         let index = j * 3;
         geom.attributes.position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-        geom.attributes.position.array[index + 1] = -10. + sharpness + (ffts[i][j]) * loudness;
+        geom.attributes.position.array[index + 1] = -10. + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
         geom.attributes.position.array[index + 2] = +15 - i * 1.1
       }
       geom.attributes.position.needsUpdate = true;
     }
 
-    for (let i = 0; i < ffts.length; i++) {
+    /* for (let i = 0; i < ffts.length; i++) {
       for (let j = 0; j < ffts[i].length * 3; j++) {
         dummy.position.set(
           40.0 + 40 * Math.log10(j / ffts[i].length),
@@ -298,7 +311,7 @@ const render = () => {
       }
       imesh2.setMatrixAt(i, dummy.matrix);
     }
-    imesh2.instanceMatrix.needsUpdate = true
+    imesh2.instanceMatrix.needsUpdate = true */
 
     // render Spectral Centroid arrow
     if (features.spectralCentroid) {
@@ -342,20 +355,20 @@ const render = () => {
     if (!!signal && imesh) {
       for (let i = 0; i < bufferSize; i++) {
         dummy.position.set(
-          -11 + (40 * i) / bufferSize,
-          4 + signal[i] * 5,
-          -25
+           (15 * i) / bufferSize,
+           signal[i] * 10,
+          0
         );
         dummy.rotation.set(
-          MathUtils.degToRad((loudness * i* 2) + time * 1e-4),
+          MathUtils.degToRad((loudness * i * 1.1) + time * 1e-4),
           0,
           0
         )
-        /* dummy.scale.set(
-          sharpness,
-          sharpness,
-          sharpness 
-        ) */
+        dummy.scale.set(
+          sharpness * 0.5,
+          sharpness * 0.25,
+          sharpness  * 0.5
+        ) 
         dummy.updateMatrix();
         imesh.setMatrixAt(i, dummy.matrix);
       }

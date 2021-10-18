@@ -10,8 +10,6 @@ export const vs = `
    
     // 
     attribute vec3 position;
-    // instance attrib
-    //attribute vec3 ipos;
   
     uniform vec4 color;
   
