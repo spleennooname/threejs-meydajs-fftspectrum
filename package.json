@@ -25,8 +25,9 @@
     "jpalette": "^1.0.4",
     "meshline": "^2.0.3",
     "meyda": "^5.2.2",
+    "postprocessing": "^6.23.1",
     "raf-polyfill": "^1.0.0",
     "stats.js": "^0.17.0",
-    "three": "^0.133.1"
+    "three": "^0.133.0"
   }
 }
