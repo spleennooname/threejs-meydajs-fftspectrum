@@ -2,7 +2,9 @@
 
 > real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS.
 
-[![Real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
+[![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
+
+[![demo 1080p - chrome windows10](https://img.youtube.com/vi/Lvakr96Llcg/0.jpg)](https://www.youtube.com/watch?v=Lvakr96Llcg)
 
 [demo](https://threejs-meydajs-fftspectrum.surge.sh)
 
