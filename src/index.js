@@ -16,7 +16,6 @@ import {
   Box3,
   ArrowHelper,
   Group,
-  Line,
   Object3D,
   Mesh,
   Clock,
@@ -27,12 +26,12 @@ import {
   InstancedMesh,
   InstancedBufferGeometry,
   InstancedBufferAttribute,
+
   Vector4,
   Vector2,
   Vector3,
   RawShaderMaterial,
   DynamicDrawUsage,
-  ReinhardToneMapping,
   sRGBEncoding,
   DoubleSide,
   Quaternion,
@@ -44,10 +43,11 @@ import {
   BufferGeometryLoader
 } from "three"
 
+import { InstancedUniformsMesh } from 'three-instanced-uniforms-mesh'
+
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 //
@@ -66,9 +66,10 @@ const aspectRatio = 4 / 3;
 // ----------------------------------------------------
 
 // for instancedmesh computation
-let imesh, imesh2, dummy = new Object3D(), matrix = new Matrix4(), position = new Vector3()
-
-//
+let imeshSignal, 
+  dummy = new Object3D(), 
+  color = new Color(), 
+  matrix = new Matrix4();
 
 const stats = new Stats();
 document.body.appendChild(stats.dom);
@@ -83,14 +84,6 @@ const camera = new PerspectiveCamera(75, aspectRatio, 5, 100);
 camera.position.set(0, -5, 5);
 camera.lookAt(0, 0, 0);
 
-const lineMaterial = new LineBasicMaterial({
-  color: 0x00fff0,
-});
-
-const yellowMaterial = new LineBasicMaterial({
-  color: 0x00ffff,
-});
-
 let w = canvas.clientWidth * pixelRatio
 let h = canvas.clientHeight * pixelRatio
 
@@ -98,16 +91,12 @@ let resolution = new Vector2(w, h)
 
 let renderer = new WebGLRenderer({
   canvas,
-  antialias: false,
-  depth: false,
-  stencil: false,
+  antialias: true,
   alpha: true,
   powerPreference: "high-performance"
 });
 renderer.outputEncoding = sRGBEncoding
-renderer.toneMapping = ReinhardToneMapping;
 renderer.setPixelRatio(pixelRatio);
-renderer.setClearColor(0x000000, 1);
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true
@@ -116,8 +105,8 @@ controls.maxDistance = 15;
 controls.minDistance = 7;
 controls.dampingFactor = 5e-2
 // x
-controls.minAzimuthAngle = - Math.PI / 2
-controls.maxAzimuthAngle = Math.PI / 2
+controls.minAzimuthAngle = - Math.PI / 1
+controls.maxAzimuthAngle = Math.PI / 1
 // y
 controls.minPolarAngle = 1
 controls.maxPolarAngle = Math.PI / 2
@@ -150,16 +139,21 @@ let centroidArrow = new ArrowHelper(dir, origin, length, 0xffff00);
 let rolloffArrow = new ArrowHelper(dir, origin, length, 0x00ff00);
 let rmsArrow = new ArrowHelper(rightDir, origin, length, 0xff00ff);
 
+const lineMaterial = new LineBasicMaterial({ color: 0x00fff0 });
+const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
+
 // SETUP FFTS
 
 // init ffts
 let ffts = getFFTs(numLines, bufferSize);
 // get meshes color
 let colors = getPalette('night', ffts.length)
+let palette = colors.map( c => new Color(c.r, c.g, c.b))
+
 
 const fftMat = new RawShaderMaterial({
   uniforms: {
-    color: { value: colors[3] }
+    color: { value: new Color(1, 0, 0)}
   },
   vertexShader: vs,
   fragmentShader: fs,
@@ -167,41 +161,25 @@ const fftMat = new RawShaderMaterial({
   side: DoubleSide
 });
 
-const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
-//const fftMatN = new MeshPhongMaterial({ shininess: 71, color: 0xffffff })
-// 1. INSTANCED MESH (test)
+// const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
+const fftMatL = new MeshLambertMaterial()
+const fftMatP = new MeshPhongMaterial({ color: 0xffffff })
 
-/* const fftMatR = new RawShaderMaterial({
-  uniforms: {
-    color: {
-      value: colors[2]
-    }
-  },
-  vertexShader: vs,
-  fragmentShader: fs,
-  transparent: true,
-  side: DoubleSide
-}); */
+// 1. INSTANCED MESH for signal
+const baseGeom = new BoxBufferGeometry(0.25)
+imeshSignal = new InstancedMesh(baseGeom, fftMatP, bufferSize);
+imeshSignal.instanceMatrix.setUsage(DynamicDrawUsage);
+imeshSignal.position.set(-8, 0, 0)
+imeshSignal.scale.set(1,1,1)
+//new Array(bufferSize).fill(0).forEach((c, i) => imeshSignal.setColorAt(i, color.set(0xffffff)) );
+const signalPalette = getPalette('night', bufferSize)
+  .map( a => new Color().fromArray(a))  
+signalPalette 
+  .forEach((c, i) => imeshSignal.setColorAt(i, c));    
 
-const baseGeom = new BoxBufferGeometry(0.5)
-imesh = new InstancedMesh(baseGeom, fftMatN, bufferSize);
-imesh.instanceMatrix.setUsage(DynamicDrawUsage);
-imesh.position.set(-8, 0, 0)
-imesh.scale.set(1,1,1)
-scene.add(imesh);
+scene.add(imeshSignal);
 
-// 2. INSTANCED MESH
- 
-/* const fftGeom = new BufferGeometry();
-fftGeom.setAttribute("position", new BufferAttribute(new Float32Array(bufferSize * 3), 3));
-fftGeom.setDrawRange(0, bufferSize);
-imesh2 = new InstancedMesh(fftGeom, new MeshNormalMaterial(), numLines);
-imesh2.instanceMatrix.setUsage(DynamicDrawUsage);
-imesh2.position.set(0,0,0)
-imesh2.meshPerAttribute= numLines
-console.log(imesh2) */
-// 3.
-
+// 2. group of meshes for fft spectrum
 let fftMeshes = new Group();
 for (let i = 0; i < ffts.length; i++) {
   if (ffts[i]) {
@@ -228,6 +206,7 @@ for (let i = 0; i < ffts.length; i++) {
     fftMeshes.add(mesh);
   }
 }
+scene.add(fftMeshes);
 
 // buffer line material
 /* const bufferLineMaterial = new RawShaderMaterial({
@@ -245,12 +224,9 @@ bufferLineGeometry.setDrawRange(0, bufferSize); */
 
 // add to scene
 scene.add(directionalLight);
-
 scene.add(centroidArrow);
 scene.add(rolloffArrow);
 scene.add(rmsArrow);
-//scene.add(bufferLine);
-scene.add(fftMeshes);
 
 // methods
 
@@ -288,30 +264,17 @@ const render = () => {
     bloomPass.strength = lerp(1, 1.25, loudness)
     bloomPass.radius = lerp(1, 2.5, sharpness)
 
-    //console.time('loop')
+    // render ffts
     for (let i = 0; i < ffts.length; i++) {
       const geom = fftMeshes.children[i].geometry
       for (let j = 0; j < ffts[i].length * 3; j++) {
         let index = j * 3;
         geom.attributes.position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-        geom.attributes.position.array[index + 1] = -10. + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
+        geom.attributes.position.array[index + 1] = -10. +  0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
         geom.attributes.position.array[index + 2] = +15 - i * 1.1
       }
       geom.attributes.position.needsUpdate = true;
     }
-
-    /* for (let i = 0; i < ffts.length; i++) {
-      for (let j = 0; j < ffts[i].length * 3; j++) {
-        dummy.position.set(
-          40.0 + 40 * Math.log10(j / ffts[i].length),
-          -10. + sharpness + (ffts[i][j]) * loudness,
-          +15 - i * 1.1
-        );
-        dummy.updateMatrix();
-      }
-      imesh2.setMatrixAt(i, dummy.matrix);
-    }
-    imesh2.instanceMatrix.needsUpdate = true */
 
     // render Spectral Centroid arrow
     if (features.spectralCentroid) {
@@ -352,7 +315,7 @@ const render = () => {
       bl.needsUpdate = true;
     }
  */
-    if (!!signal && imesh) {
+    if (!!signal && imeshSignal) {
       for (let i = 0; i < bufferSize; i++) {
         dummy.position.set(
            (15 * i) / bufferSize,
@@ -360,21 +323,23 @@ const render = () => {
           0
         );
         dummy.rotation.set(
-          MathUtils.degToRad((loudness * i * 1.1) + time * 1e-4),
+          (time + loudness) * 1e-3,
           0,
-          0
+          loudness
         )
         dummy.scale.set(
-          sharpness * 0.5,
-          sharpness * 0.25,
-          sharpness  * 0.5
+          sharpness * 0.2,
+          sharpness * 0.2,
+          sharpness * 0.2
         ) 
         dummy.updateMatrix();
-        imesh.setMatrixAt(i, dummy.matrix);
+        color.set(signalPalette[i])
+        imeshSignal.setColorAt(i, color)
+        imeshSignal.setMatrixAt(i, dummy.matrix);
       }
-      imesh.instanceMatrix.needsUpdate = true
+      imeshSignal.instanceMatrix.needsUpdate = true
+      imeshSignal.instanceColor.needsUpdate = true
     }
-
   }
   //
   controls.update()
@@ -395,9 +360,6 @@ const tick = () => {
 const audio = new AudioExtractor({
   bufferSize,
   onComplete: audioExtractor => {
-
-    //const startOrientation = camera.quaternion.clone();
-    //const targetOrientation = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI / 2);
 
     tl.to('#cover', {
       duration: 1.0,
@@ -430,23 +392,3 @@ tl.to('#cover', {
 })
 
 btn.addEventListener('click', e => audio.start(), { once: true })
-
-/* var loader = new BufferGeometryLoader();
-loader.load('https://threejs.org/examples/models/json/suzanne_buffergeometry.json',
-  geometry => {
-    geometry.computeVertexNormals();
-    geometry.scale(1, 1, 1);
-
-    imesh = new InstancedMesh(geometry, new MeshNormalMaterial(), numLines);
-    imesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    imesh.position.set(-10, 0, -20)
-    scene.add(imesh);
-
-    for (let i = 0; i < 5; i++) {
-      dummy.position.set(i * 5, 0, 0);
-      dummy.updateMatrix();
-      imesh.setMatrixAt(i, dummy.matrix);
-    }
-
-  }
-) */
