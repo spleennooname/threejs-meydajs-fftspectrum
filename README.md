@@ -1,5 +1,10 @@
 # threejs + meyda
 
+```
+▀█▀ █░█ █▀█ █▀▀ █▀▀ ░░█ █▀   ▄█▄   █▀▄▀█ █▀▀ █▄█ █▀▄ ▄▀█ █░█ █▀
+░█░ █▀█ █▀▄ ██▄ ██▄ █▄█ ▄█   ░▀░   █░▀░█ ██▄ ░█░ █▄▀ █▀█ █▀█ ▄█
+```
+
 > real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS.
 
 ![threejs r133](https://img.shields.io/badge/three-v133-green) ![meyda v5.2.2](https://img.shields.io/badge/meyda-v5.2.2-green)
@@ -10,10 +15,10 @@
 
 [demo](https://threejs-meydajs-fftspectrum.surge.sh)
 
-longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features, used to drive the _threejs_ webgl effect.
+longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features, used to affect the _threejs_ webgl fx
 
 - Start project with `npm run dev`
-- open another tab with youtube music
+- open another tab with youtube music / bring any sound source closer to the microphone
 - ✨Magic✨
 
 What are audio features? [Read here](https://meyda.js.org/audio-features)
@@ -47,7 +52,7 @@ npm run build
 
 ## todo
 
-- [] use InstancedMesh for FFT Spectrum
+- [x] use InstancedMesh for FFT Spectrum
 
 ## License
 
