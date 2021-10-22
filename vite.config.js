@@ -1,13 +1,16 @@
 // vite.config.js
 
 import { defineConfig} from 'vite'
+import { esbuildCommonjs } from '@originjs/vite-plugin-commonjs'
 
 export default defineConfig(({ command, mode }) => {
   return {
     server: {
       https: true
     },
-    plugins: [],
+    plugins: [
+      esbuildCommonjs(['colormap'])
+    ],
     build: {
       // cssCodeSplit: true,
       minify: 'esbuild',

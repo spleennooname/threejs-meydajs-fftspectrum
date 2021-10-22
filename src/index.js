@@ -57,13 +57,14 @@ import { fs, vs } from './materials/line'
 //
 import AudioExtractor from './AudioExtractor'
 
-// ----------------------------------------------------
+// commons
 
 const bufferSize = 512;
 const numLines = 50;
 const aspectRatio = 4 / 3;
+// check https://github.com/bpostlethwaite/colormap
+const paletteLabel = "picnic"
 
-// ----------------------------------------------------
 
 // for instancedmesh computation
 let imeshSignal, 
@@ -147,7 +148,7 @@ const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
 // init ffts
 let ffts = getFFTs(numLines, bufferSize);
 // get meshes color
-let colors = getPalette('night', ffts.length)
+let colors = getPalette(paletteLabel, ffts.length)
 let palette = colors.map( c => new Color(c.r, c.g, c.b))
 
 
@@ -171,8 +172,8 @@ imeshSignal = new InstancedMesh(baseGeom, fftMatP, bufferSize);
 imeshSignal.instanceMatrix.setUsage(DynamicDrawUsage);
 imeshSignal.position.set(-8, 0, 0)
 imeshSignal.scale.set(1,1,1)
-//new Array(bufferSize).fill(0).forEach((c, i) => imeshSignal.setColorAt(i, color.set(0xffffff)) );
-const signalPalette = getPalette('night', bufferSize)
+
+const signalPalette = getPalette(paletteLabel, bufferSize)
   .map( a => new Color().fromArray(a))  
 signalPalette 
   .forEach((c, i) => imeshSignal.setColorAt(i, c));    
@@ -364,7 +365,6 @@ const audio = new AudioExtractor({
     tl.to('#cover', {
       duration: 1.0,
       autoAlpha: 0,
-      right: "10px",
       ease: 'power2.out',
       onComplete: () => { }
     });
@@ -386,8 +386,7 @@ const tl = gsap.timeline()
 tl.to('#cover', {
   duration: 2,
   autoAlpha: 1,
-  left: "-20px",
-  ease: 'expo.out',
+  ease: 'expo.inOut',
   onComplete: () => { }
 })
 

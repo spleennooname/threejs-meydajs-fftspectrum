@@ -1,4 +1,5 @@
-import * as jPalette from 'jpalette';
+
+import colormap from 'colormap'
 
 export const getFFTs = (number, pointCount) => {
     let ffts = [];
@@ -11,10 +12,12 @@ export const getFFTs = (number, pointCount) => {
 };
 
 export const getPalette = (name, num) => {
-    return jPalette.ColorMap
-        .get(name)(num)
-        .map
-        .map(v => [v.r / 255, v.g / 255, v.b / 255, v.a / 255])
+    return colormap({
+        colormap: name,
+        nshades: num,
+        format: 'float',
+        alpha: 1
+    })
 }
 
 //https://www.trysmudford.com/blog/linear-interpolation-functions/

@@ -11,6 +11,7 @@
     "serve": "vite preview"
   },
   "devDependencies": {
+    "@originjs/vite-plugin-commonjs": "^1.0.1",
     "cross-env": "^7.0.3",
     "sass": "^1.43.2",
     "vite": "^2.6.7"
@@ -19,10 +20,10 @@
     "> 0.25%, not ie 11, not op_mini all"
   ],
   "dependencies": {
+    "colormap": "^2.3.2",
     "detect-gpu": "^3.1.21",
     "gsap": "^3.8.0",
     "javascript-obfuscator": "^2.19.0",
-    "jpalette": "^1.0.4",
     "meshline": "^2.0.3",
     "meyda": "^5.2.2",
     "postprocessing": "^6.23.1",
