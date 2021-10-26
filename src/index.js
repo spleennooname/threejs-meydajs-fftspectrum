@@ -60,11 +60,10 @@ import AudioExtractor from './AudioExtractor'
 // commons
 
 const bufferSize = 512;
-const numLines = 50;
+const numLines = 40;
 const aspectRatio = 4 / 3;
 // check https://github.com/bpostlethwaite/colormap
 const paletteLabel = "picnic"
-
 
 // for instancedmesh computation
 let imeshSignal, 
@@ -92,8 +91,8 @@ let resolution = new Vector2(w, h)
 
 let renderer = new WebGLRenderer({
   canvas,
-  antialias: true,
-  alpha: true,
+  antialias: false,
+  alpha: false,
   powerPreference: "high-performance"
 });
 renderer.outputEncoding = sRGBEncoding
@@ -154,7 +153,7 @@ let palette = colors.map( c => new Color(c.r, c.g, c.b))
 
 const fftMat = new RawShaderMaterial({
   uniforms: {
-    color: { value: new Color(1, 0, 0)}
+    uColor: { value: new Color(1, 1, 1)}
   },
   vertexShader: vs,
   fragmentShader: fs,
@@ -191,7 +190,7 @@ for (let i = 0; i < ffts.length; i++) {
     //
     const fftMat = new RawShaderMaterial({
       uniforms: {
-        color: {
+        uColor: {
           value: colors[ffts.length - i - 1]
         }
       },

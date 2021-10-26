@@ -11,7 +11,7 @@ export const vs = `
     // 
     attribute vec3 position;
   
-    uniform vec4 color;
+    uniform vec4 uColor;
   
     varying vec4 vColor;
   
@@ -21,7 +21,7 @@ export const vs = `
         modelMatrix * // THREE.Mesh
         vec4( position, 1.0 ); // from THREE.BufferGeometry
   
-      vColor = color;
+      vColor = uColor;
     }
   `
 export const fs = `

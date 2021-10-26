@@ -45,16 +45,19 @@ body {
 }
 
 #canvas {
-  width: 100%;
-  height: auto;
+  width: 133vh;
+  height: 100vh;
   touch-action: none;
   display: block;
 }
 
 .cover {
-  position: fixed;
-  top: 0;
+  position: absolute;
+  display: flex;
   left: 0;
+  top: 0;
+  justify-content: center;
+  align-items: center;
   z-index: 2;
   opacity: 0;
   width: 100vw;
@@ -70,8 +73,7 @@ body {
   transform: translate(-50%, -50%);
 }
 
-
-.credits{
+.credits {
   position: fixed;
   left: 0;
   bottom: 0;
@@ -81,16 +83,16 @@ body {
   z-index: 3;
 }
 
-.credits > a{
+.credits > a {
   color: #fefefe;
-  transition:  all 0.5s ease-out;
+  transition: all 0.5s ease-out;
 }
 
-.credits > a:hover{
+.credits > a:hover {
   opacity: 0.5;
 }
 
-.f{
+.f {
   font-family: 'Montserrat', sans-serif;
   font-weight: bold;
   text-transform: uppercase;
@@ -100,3 +102,28 @@ body {
   letter-spacing: 2px;
 }
 
+.play {
+  display: block;
+  background: white;
+  color: black;
+  border-radius: 50px;
+  height: 100px;
+  
+  text-align:  center;
+ 
+  font-size: 10px;
+  width: 100px;
+
+  
+}
+
+.play .t{
+  font-size:18px;
+  line-height: 30px;
+  position: relative;
+  top: 20px;
+}
+
+.play .t .fa{
+  font-size: 20px;
+}
