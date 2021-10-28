@@ -108,22 +108,18 @@ body {
   color: black;
   border-radius: 50px;
   height: 100px;
-  
-  text-align:  center;
- 
+  text-align: center;
   font-size: 10px;
   width: 100px;
-
-  
 }
 
-.play .t{
-  font-size:18px;
+.play .t {
+  font-size: 18px;
   line-height: 30px;
   position: relative;
   top: 20px;
 }
 
-.play .t .fa{
+.play .t .fa {
   font-size: 20px;
 }
