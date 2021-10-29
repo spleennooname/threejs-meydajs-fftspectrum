@@ -1,22 +1,23 @@
 
 import * as Meyda from "meyda";
 
-export default class AudioExtractor {
+export default class FeatureExtractor {
 
   constructor({onComplete, bufferSize = 512}) {
-    
-    this.bufferSize =  bufferSize
+    this.bufferSize = bufferSize
     this.onReady = onComplete
   }
 
   start( options = { audio: true, video: false }){
+
+    let op = options
     //
     this.context = new AudioContext()
     //
     navigator.getUserMedia = navigator.webkitGetUserMedia ||
       navigator.getUserMedia ||
       navigator.mediaDevices.getUserMedia;
-
+    //
     const errorCb = err =>{
       console.error("error", err)
       if (this.context.state === "suspended") {
@@ -31,15 +32,21 @@ export default class AudioExtractor {
         document.body.addEventListener("touchend", resume, false)
       }
     }
-
     //
     const successCallback = stream => {
+
       window.persistAudioStream = stream;
+
+      this.streamSettings = stream.getAudioTracks()[0].getSettings()
+      
+      console.log(this.streamSettings)
+      
       this.source = this.context.createMediaStreamSource(stream)
+      //
       this.meyda = Meyda.createMeydaAnalyzer({
         audioContext: this.context,
         source: this.source,
-        //sampleRate: 44100,
+        sampleRate: this.streamSettings.sampleRate || 44100,
         // Buffer Size tells Meyda how often to check the audio feature, and is
         // measured in Audio Samples. Usually there are 44100 Audio Samples in 1
         // second, which means in this case Meyda will calculate the level about 43
@@ -52,7 +59,8 @@ export default class AudioExtractor {
     }
     //
     try {
-      navigator.mediaDevices
+      navigator
+        .mediaDevices
         .getUserMedia(options)
         .then(successCallback)
         .catch(err =>{

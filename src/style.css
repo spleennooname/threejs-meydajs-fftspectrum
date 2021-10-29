@@ -18,7 +18,7 @@ body {
   -ms-user-select: none;
   user-select: none;
 
-  font-family: 'Montserrat', sans-serif;
+  font-family: 'Arial', sans-serif;
   font-weight: bold;
   text-transform: uppercase;
 
@@ -45,7 +45,8 @@ body {
 }
 
 #canvas {
-  width: 133vh;
+  /* 4/3 */
+  width: 133vh; 
   height: 100vh;
   touch-action: none;
   display: block;
