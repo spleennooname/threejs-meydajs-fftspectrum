@@ -13,20 +13,15 @@ import {
   LineBasicMaterial,
   WebGLRenderer,
   DirectionalLight,
-  Box3,
   ArrowHelper,
   Group,
   Object3D,
   Mesh,
   Clock,
   Color,
-  SphereBufferGeometry,
   BufferGeometry,
   BufferAttribute,
   InstancedMesh,
-  InstancedBufferGeometry,
-  InstancedBufferAttribute,
-
   Vector4,
   Vector2,
   Vector3,
@@ -34,28 +29,23 @@ import {
   DynamicDrawUsage,
   sRGBEncoding,
   DoubleSide,
-  Quaternion,
   BoxBufferGeometry,
-  Matrix4,
-  MeshNormalMaterial,
-  MeshLambertMaterial,
-  MeshPhongMaterial,
-  BufferGeometryLoader
+  MeshBasicMaterial,
+  MeshPhongMaterial
 } from "three"
-
-import { InstancedUniformsMesh } from 'three-instanced-uniforms-mesh'
 
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 //
 import { getFFTs, getPalette, lerp, invlerp } from "./utils"
 //
 import { fs, vs } from './materials/line'
 //
-import AudioExtractor from './AudioExtractor'
+import AudioFeaturesExtractor from './AudioFeaturesExtractor'
 
 // commons
 
@@ -68,8 +58,7 @@ const paletteLabel = "picnic"
 // for instancedmesh computation
 let imeshSignal, 
   dummy = new Object3D(), 
-  color = new Color(), 
-  matrix = new Matrix4();
+  color = new Color();
 
 const stats = new Stats();
 document.body.appendChild(stats.dom);
@@ -150,7 +139,6 @@ let ffts = getFFTs(numLines, bufferSize);
 let colors = getPalette(paletteLabel, ffts.length)
 let palette = colors.map( c => new Color(c.r, c.g, c.b))
 
-
 const fftMat = new RawShaderMaterial({
   uniforms: {
     uColor: { value: new Color(1, 1, 1)}
@@ -162,7 +150,7 @@ const fftMat = new RawShaderMaterial({
 });
 
 // const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
-const fftMatL = new MeshLambertMaterial()
+const fftMatL = new MeshBasicMaterial()
 const fftMatP = new MeshPhongMaterial({ color: 0xffffff })
 
 // 1. INSTANCED MESH for signal
@@ -249,8 +237,8 @@ const render = () => {
 
   const time = performance.now();
   //
-  const features = audio.features();
-  const signal = audio.signal();
+  const features = extractor.features();
+  const signal = extractor.signal();
 
   if (!!features) {
     // fill ffts spectrum buffers
@@ -357,9 +345,9 @@ const tick = () => {
 
 // start the thing
 
-const audio = new AudioExtractor({
+const extractor = new AudioFeaturesExtractor({
   bufferSize,
-  onComplete: audioExtractor => {
+  onComplete: AudioFeaturesExtractor => {
 
     tl.to('#cover', {
       duration: 1.0,
@@ -389,4 +377,4 @@ tl.to('#cover', {
   onComplete: () => { }
 })
 
-btn.addEventListener('click', e => audio.start(), { once: true })
+btn.addEventListener('click', e => extractor.start(), { once: true })

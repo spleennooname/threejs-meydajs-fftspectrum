@@ -1,16 +1,27 @@
 
 import * as Meyda from "meyda";
 
-export default class FeatureExtractor {
+const AUDIO_CONSTRAINS = {
+  audio: {
+    channelCount: {
+      ideal: 2,
+      min: 1
+    },
+    echoCancellation: true,
+    autoGainControl: true,
+    noiseSuppression: true
+  }
+}
 
-  constructor({onComplete, bufferSize = 512}) {
+export default class AudioFeaturesExtractor {
+
+  constructor({ onComplete, bufferSize = 512 }) {
     this.bufferSize = bufferSize
     this.onReady = onComplete
   }
 
-  start( options = { audio: true, video: false }){
+  start(AUDIO_COSTRAINS) {
 
-    let op = options
     //
     this.context = new AudioContext()
     //
@@ -18,12 +29,12 @@ export default class FeatureExtractor {
       navigator.getUserMedia ||
       navigator.mediaDevices.getUserMedia;
     //
-    const errorCb = err =>{
+    const errorCb = err => {
       console.error("error", err)
       if (this.context.state === "suspended") {
         const resume = () => {
           this.context.resume();
-          setTimeout(() =>{
+          setTimeout(() => {
             if (this.context.state === "running") {
               document.body.removeEventListener("touchend", resume, false)
             }
@@ -38,9 +49,9 @@ export default class FeatureExtractor {
       window.persistAudioStream = stream;
 
       this.streamSettings = stream.getAudioTracks()[0].getSettings()
-      
+
       console.log(this.streamSettings)
-      
+
       this.source = this.context.createMediaStreamSource(stream)
       //
       this.meyda = Meyda.createMeydaAnalyzer({
@@ -55,21 +66,21 @@ export default class FeatureExtractor {
         windowingFunction: "blackman"
       });
       this.meyda.start()
-      !!this.onReady && this.onReady( this )
+      !!this.onReady && this.onReady(this)
     }
     //
     try {
       navigator
         .mediaDevices
-        .getUserMedia(options)
+        .getUserMedia(AUDIO_CONSTRAINS)
         .then(successCallback)
-        .catch(err =>{
-          navigator.getUserMedia( { audio: true },
+        .catch(err => {
+          navigator.getUserMedia({ audio: true },
             successCallback,
             errorCb
           );
         })
-    } catch (e){
+    } catch (e) {
       errorCb(e)
     }
   }
@@ -83,16 +94,16 @@ export default class FeatureExtractor {
     "rms",
     "chroma",
     "mfcc",
-  ]){
+  ]) {
     this.context.resume();
     return this.meyda.get(features)
   }
 
-  signal(){
+  signal() {
     return this.meyda._m.signal;
   }
 
-  onReady( fn ){
-    cb( this )
+  onReady(fn) {
+    cb(this)
   }
 }
