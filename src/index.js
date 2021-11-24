@@ -1,13 +1,12 @@
 
+import gsap from "gsap"
 
-import gsap from 'gsap'
+import Stats from "stats.js"
 
-import Stats from 'stats.js'
+import { fromEvent, take, startWith, map, debounceTime, first, single } from "rxjs"
 
 // three
-
 import {
-  MathUtils,
   Scene,
   PerspectiveCamera,
   LineBasicMaterial,
@@ -17,12 +16,10 @@ import {
   Group,
   Object3D,
   Mesh,
-  Clock,
   Color,
   BufferGeometry,
   BufferAttribute,
   InstancedMesh,
-  Vector4,
   Vector2,
   Vector3,
   RawShaderMaterial,
@@ -34,30 +31,31 @@ import {
   MeshPhongMaterial
 } from "three"
 
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+// import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 //
 import { getFFTs, getPalette, lerp, invlerp } from "./utils"
 //
-import { fs, vs } from './materials/line'
+import { fs, vs } from "./materials/line"
 //
-import AudioFeaturesExtractor from './AudioFeaturesExtractor'
+import AudioFeaturesExtractor from "./AudioFeaturesExtractor"
 
 // commons
 
 const bufferSize = 512;
 const numLines = 40;
 const aspectRatio = 4 / 3;
+
 // check https://github.com/bpostlethwaite/colormap
 const paletteLabel = "picnic"
 
 // for instancedmesh computation
-let imeshSignal, 
-  dummy = new Object3D(), 
+let imeshSignal,
+  dummy = new Object3D(),
   color = new Color();
 
 const stats = new Stats();
@@ -67,11 +65,13 @@ const pixelRatio = Math.min(window.devicePixelRatio, 1.5)
 
 const scene = new Scene();
 
-const clock = new Clock();
+//const clock = new Clock();
 
 const camera = new PerspectiveCamera(75, aspectRatio, 5, 100);
 camera.position.set(0, -5, 5);
 camera.lookAt(0, 0, 0);
+
+const canvas = document.querySelector("#canvas")
 
 let w = canvas.clientWidth * pixelRatio
 let h = canvas.clientHeight * pixelRatio
@@ -137,11 +137,11 @@ const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
 let ffts = getFFTs(numLines, bufferSize);
 // get meshes color
 let colors = getPalette(paletteLabel, ffts.length)
-let palette = colors.map( c => new Color(c.r, c.g, c.b))
+let palette = colors.map(c => new Color(c.r, c.g, c.b))
 
 const fftMat = new RawShaderMaterial({
   uniforms: {
-    uColor: { value: new Color(1, 1, 1)}
+    uColor: { value: new Color(1, 1, 1) }
   },
   vertexShader: vs,
   fragmentShader: fs,
@@ -158,12 +158,12 @@ const baseGeom = new BoxBufferGeometry(0.25)
 imeshSignal = new InstancedMesh(baseGeom, fftMatP, bufferSize);
 imeshSignal.instanceMatrix.setUsage(DynamicDrawUsage);
 imeshSignal.position.set(-8, 0, 0)
-imeshSignal.scale.set(1,1,1)
+imeshSignal.scale.set(1, 1, 1)
 
 const signalPalette = getPalette(paletteLabel, bufferSize)
-  .map( a => new Color().fromArray(a))  
-signalPalette 
-  .forEach((c, i) => imeshSignal.setColorAt(i, c));    
+  .map(a => new Color().fromArray(a))
+signalPalette
+  .forEach((c, i) => imeshSignal.setColorAt(i, c));
 
 scene.add(imeshSignal);
 
@@ -237,10 +237,10 @@ const render = () => {
 
   const time = performance.now();
   //
-  const features = extractor.features();
-  const signal = extractor.signal();
+  const features = audioFeaturesExtractor.features();
+  const signal = audioFeaturesExtractor.signal();
 
-  if (!!features) {
+  if (features) {
     // fill ffts spectrum buffers
     ffts.pop();
     ffts.unshift(features.amplitudeSpectrum);
@@ -258,7 +258,7 @@ const render = () => {
       for (let j = 0; j < ffts[i].length * 3; j++) {
         let index = j * 3;
         geom.attributes.position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-        geom.attributes.position.array[index + 1] = -10. +  0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
+        geom.attributes.position.array[index + 1] = -10. + 0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
         geom.attributes.position.array[index + 2] = +15 - i * 1.1
       }
       geom.attributes.position.needsUpdate = true;
@@ -306,8 +306,8 @@ const render = () => {
     if (!!signal && imeshSignal) {
       for (let i = 0; i < bufferSize; i++) {
         dummy.position.set(
-           (15 * i) / bufferSize,
-           signal[i] * 10,
+          (15 * i) / bufferSize,
+          signal[i] * 10,
           0
         );
         dummy.rotation.set(
@@ -319,7 +319,7 @@ const render = () => {
           sharpness * 0.2,
           sharpness * 0.2,
           sharpness * 0.2
-        ) 
+        )
         dummy.updateMatrix();
         color.set(signalPalette[i])
         imeshSignal.setColorAt(i, color)
@@ -333,48 +333,63 @@ const render = () => {
   controls.update()
   //
   composer.render();
-  //renderer.render(scene, camera)
   // 
   stats.update()
 }
 
+let rafId;
 const tick = () => {
   render()
-  requestAnimationFrame(tick);
+  let rafId = requestAnimationFrame(tick);
 }
 
 // start the thing
-
-const extractor = new AudioFeaturesExtractor({
+const audioFeaturesExtractor = new AudioFeaturesExtractor({
   bufferSize,
-  onComplete: AudioFeaturesExtractor => {
+  onComplete: audioFeaturesExtractor => {
 
-    tl.to('#cover', {
+    tl.to("#cover", {
       duration: 1.0,
       autoAlpha: 0,
-      ease: 'power2.out',
+      ease: "power2.out",
       onComplete: () => { }
     });
-    /* tl.to({}, {
-      duration: 5.0,
-      ease: 'power2.out',
-      onUpdate: function () {
-        camera.quaternion
-          .copy(startOrientation)
-          .slerp(targetOrientation, this.progress());
-      }
-    }, "-=0.8"); */
+
+    // https://rxjs.dev/api/index/const/animationFrameScheduler#example
+    // schedules on the queue of code to be executed before the next browser repaint
     tick()
   }
 })
 
-const btn = document.querySelector("#cover")
 const tl = gsap.timeline()
-tl.to('#cover', {
+tl.to("#cover", {
   duration: 2,
   autoAlpha: 1,
-  ease: 'expo.inOut',
+  ease: "expo.inOut",
   onComplete: () => { }
 })
 
-btn.addEventListener('click', e => extractor.start(), { once: true })
+const btn = document.querySelector("#cover")
+const btn$ = fromEvent(btn, "click")
+  .pipe(
+    debounceTime(200),
+    first()
+  )
+  .subscribe(event => {
+    tl.to(btn, {
+      duration: 2.,
+      autoAlpha: 0,
+      ease: "power2.out"
+    });
+    audioFeaturesExtractor.start()
+  })
+
+// Mouse event stream emits on mousemove
+/* const mouse$ = fromEvent(canvas, 'mousemove')
+  .pipe(
+    map(e => ({ x: e.clientX, y: e.clientY })),
+    startWith({ x: 0, y: 0 })
+  )
+  .subscribe(event => {
+    console.log(event)
+  }) */

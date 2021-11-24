@@ -46,7 +46,7 @@ body {
 
 #canvas {
   /* 4/3 */
-  width: 133vh; 
+  width: 133vh;
   height: 100vh;
   touch-action: none;
   display: block;
@@ -79,6 +79,7 @@ body {
   left: 0;
   bottom: 0;
   padding: 0 0 20px 20px;
+  font-size: 8px;
   line-height: 18px;
   color: white;
   z-index: 3;
@@ -97,7 +98,7 @@ body {
   font-family: 'Montserrat', sans-serif;
   font-weight: bold;
   text-transform: uppercase;
-  font-size: 12px;
+  font-size: 10px;
   line-height: 20px;
   color: #fefefe;
   letter-spacing: 2px;
@@ -105,20 +106,14 @@ body {
 
 .play {
   display: block;
-  background: white;
-  color: black;
-  border-radius: 50px;
-  height: 100px;
-  text-align: center;
-  font-size: 10px;
-  width: 100px;
 }
 
 .play .t {
-  font-size: 18px;
+  font-size: 40px;
   line-height: 30px;
   position: relative;
-  top: 20px;
+  top: 30px;
+  left: 10px;
 }
 
 .play .t .fa {
