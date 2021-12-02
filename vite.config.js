@@ -1,7 +1,7 @@
 // vite.config.js
 
-import { defineConfig} from 'vite'
-import { esbuildCommonjs } from '@originjs/vite-plugin-commonjs'
+import { defineConfig} from "vite"
+import { esbuildCommonjs } from "@originjs/vite-plugin-commonjs"
 
 export default defineConfig(({ command, mode }) => {
   return {
@@ -9,21 +9,20 @@ export default defineConfig(({ command, mode }) => {
       https: true
     },
     plugins: [
-      esbuildCommonjs(['colormap'])
+      esbuildCommonjs(["colormap"])
     ],
     build: {
       // cssCodeSplit: true,
-      minify: 'esbuild',
+      minify: "esbuild",
       chunkSizeWarningLimit:1000,
       rollupOptions:{
         input: {
-          index  : './index.html',
-          /* index2 : './index2.html' */
+          index  : "./index.html",
         },
         output:{
           manualChunks: {
-            three: [ 'three' ],
-            meyda: [ 'meyda' ]
+            three: [ "three" ],
+            meyda: [ "meyda" ]
           }
         }
       }
