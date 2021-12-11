@@ -3,9 +3,9 @@
 ░█░ █▀█ █▀▄ ██▄ ██▄ █▄█ ▄█   ░▀░   █░▀░█ ██▄ ░█░ █▄▀ █▀█ █▄█ ▄█
 ```
 
-> real-time FFT magnitude spectrum analyzer with ThreeJS and MeydaJS.
+> real-time FFT magnitude spectrum analyzer with ThreeJS, RxJS, MeydaJS.
 
-![threejs r133](https://img.shields.io/badge/three-v133-green) ![meyda v5.2.2](https://img.shields.io/badge/meyda-v5.2.2-green)
+![threejs r133](https://img.shields.io/badge/three-v133-green) ![meyda v5.2.2](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.0](https://img.shields.io/badge/rxjs-v7.0-green)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
@@ -44,6 +44,7 @@ npm run build
 ## Tech stack
 
 - [ThreeJS](https://threejs.org)
+- [RXJS](https://rxjs.dev/)
 - [MeydaJS](https://meyda.js.org/)
   > Meyda is a JavaScript audio feature extraction library. It works with the Web Audio API (or plain old JavaScript arrays) to expose information about the timbre and perceived qualities of sound. Meyda supports both offline feature extraction as well as real-time feature extraction using the Web Audio API.
 - [Vite](https://vitejs.dev/)
@@ -51,6 +52,7 @@ npm run build
 ## todo
 
 - [x] use InstancedMesh for FFT Spectrum
+- [x] refactor with rxjs
 
 ## License
 
