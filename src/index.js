@@ -3,9 +3,19 @@ import gsap from "gsap"
 
 import Stats from "stats.js"
 
-import { fromEvent, take, startWith, map, debounceTime, first, single } from "rxjs"
+import {
+  fromEvent,
+  debounceTime,
+  animationFrames,
+  filter,
+  startWith,
+  withLatestFrom,
+  first,
+  sampleTime,
+  scan,
+  combineLatest,
+} from "rxjs";
 
-// three
 import {
   Scene,
   PerspectiveCamera,
@@ -33,7 +43,6 @@ import {
 
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-// import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -44,7 +53,6 @@ import { fs, vs } from "./materials/line"
 //
 import AudioFeaturesExtractor from "./AudioFeaturesExtractor"
 
-// commons
 
 const bufferSize = 512;
 const numLines = 40;
@@ -66,6 +74,8 @@ const pixelRatio = Math.min(window.devicePixelRatio, 1.5)
 const scene = new Scene();
 
 //const clock = new Clock();
+// start the thing
+const audioFeaturesExtractor = new AudioFeaturesExtractor({ bufferSize });
 
 const camera = new PerspectiveCamera(75, aspectRatio, 5, 100);
 camera.position.set(0, -5, 5);
@@ -221,7 +231,7 @@ scene.add(rmsArrow);
 const resizeIfNeed = () => {
   const canvas = renderer.domElement;
   let w = Math.floor(canvas.clientWidth * pixelRatio);
-  let h = Math.floor((canvas.clientWidth * pixelRatio) / aspectRatio)
+  let h = Math.floor(w / aspectRatio);
   const needResize = canvas.width !== w || canvas.height !== h;
   if (needResize) {
     renderer.setSize(w, h, false);
@@ -236,97 +246,99 @@ const render = () => {
   resizeIfNeed();
 
   const time = performance.now();
-  //
-  const features = audioFeaturesExtractor.features();
-  const signal = audioFeaturesExtractor.signal();
 
-  if (features) {
-    // fill ffts spectrum buffers
-    ffts.pop();
-    ffts.unshift(features.amplitudeSpectrum);
-    // 
-    const loudness = invlerp(7, 40, features.loudness.total)
-    const rms = features.rms
-    const sharpness = features.perceptualSharpness //invlerp(0.7, 4, features.perceptualSharpness)
-    // affect blooming with sharpness and loudness 
-    bloomPass.strength = lerp(1, 1.25, loudness)
-    bloomPass.radius = lerp(1, 2.5, sharpness)
+  if (audioFeaturesExtractor) {
+    const features = audioFeaturesExtractor.features();
+    const signal = audioFeaturesExtractor.signal();
 
-    // render ffts
-    for (let i = 0; i < ffts.length; i++) {
-      const geom = fftMeshes.children[i].geometry
-      for (let j = 0; j < ffts[i].length * 3; j++) {
-        let index = j * 3;
-        geom.attributes.position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-        geom.attributes.position.array[index + 1] = -10. + 0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
-        geom.attributes.position.array[index + 2] = +15 - i * 1.1
+    if (features) {
+      // fill ffts spectrum buffers
+      ffts.pop();
+      ffts.unshift(features.amplitudeSpectrum);
+      // 
+      const loudness = invlerp(7, 40, features.loudness.total)
+      const rms = features.rms
+      const sharpness = features.perceptualSharpness //invlerp(0.7, 4, features.perceptualSharpness)
+      // affect blooming with sharpness and loudness 
+      bloomPass.strength = lerp(1, 1.25, loudness)
+      bloomPass.radius = lerp(1, 2.5, sharpness)
+
+      // render ffts
+      for (let i = 0; i < ffts.length; i++) {
+        const geom = fftMeshes.children[i].geometry
+        for (let j = 0; j < ffts[i].length * 3; j++) {
+          let index = j * 3;
+          geom.attributes.position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
+          geom.attributes.position.array[index + 1] = -10. + 0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
+          geom.attributes.position.array[index + 2] = +15 - i * 1.1
+        }
+        geom.attributes.position.needsUpdate = true;
       }
-      geom.attributes.position.needsUpdate = true;
-    }
 
-    // render Spectral Centroid arrow
-    if (features.spectralCentroid) {
-      centroidArrow.position.set(
-        12 + 8 * Math.log10(features.spectralCentroid / (bufferSize / 2)),
-        -6,
-        -15
-      );
-    }
-
-    // render spectral rolloff arrow
-    if (features.spectralRolloff) {
-      let rolloff = features.spectralRolloff / 22050;
-      rolloffArrow.position.set(
-        12 + 8 * Math.log10(rolloff),
-        -6,
-        -15
-      );
-    }
-
-    // render rms arrow
-    if (features.rms) {
-      rmsArrow.position.set(
-        -11,
-        -5 + 10 * features.rms,
-        -15
-      );
-    }
-
-    /* const bl = bufferLine.geometry.attributes.position
-    if (!!signal) {
-      for (let i = 0; i < bufferSize; i++) {
-        let index = i * 3
-        bl.array[index] = -11 + (22 * i) / bufferSize;
-        bl.array[index + 1] = 4 + signal[i] * 5;
-        bl.array[index + 2] = -25;
-      }
-      bl.needsUpdate = true;
-    }
- */
-    if (!!signal && imeshSignal) {
-      for (let i = 0; i < bufferSize; i++) {
-        dummy.position.set(
-          (15 * i) / bufferSize,
-          signal[i] * 10,
-          0
+      // render Spectral Centroid arrow
+      if (features.spectralCentroid) {
+        centroidArrow.position.set(
+          12 + 8 * Math.log10(features.spectralCentroid / (bufferSize / 2)),
+          -6,
+          -15
         );
-        dummy.rotation.set(
-          (time + loudness) * 1e-3,
-          0,
-          loudness
-        )
-        dummy.scale.set(
-          sharpness * 0.2,
-          sharpness * 0.2,
-          sharpness * 0.2
-        )
-        dummy.updateMatrix();
-        color.set(signalPalette[i])
-        imeshSignal.setColorAt(i, color)
-        imeshSignal.setMatrixAt(i, dummy.matrix);
       }
-      imeshSignal.instanceMatrix.needsUpdate = true
-      imeshSignal.instanceColor.needsUpdate = true
+
+      // render spectral rolloff arrow
+      if (features.spectralRolloff) {
+        let rolloff = features.spectralRolloff / 22050;
+        rolloffArrow.position.set(
+          12 + 8 * Math.log10(rolloff),
+          -6,
+          -15
+        );
+      }
+
+      // render rms arrow
+      if (features.rms) {
+        rmsArrow.position.set(
+          -11,
+          -5 + 10 * features.rms,
+          -15
+        );
+      }
+
+      /* const bl = bufferLine.geometry.attributes.position
+      if (!!signal) {
+        for (let i = 0; i < bufferSize; i++) {
+          let index = i * 3
+          bl.array[index] = -11 + (22 * i) / bufferSize;
+          bl.array[index + 1] = 4 + signal[i] * 5;
+          bl.array[index + 2] = -25;
+        }
+        bl.needsUpdate = true;
+      }
+   */
+      if (!!signal && imeshSignal) {
+        for (let i = 0; i < bufferSize; i++) {
+          dummy.position.set(
+            (15 * i) / bufferSize,
+            signal[i] * 10,
+            0
+          );
+          dummy.rotation.set(
+            (time + loudness) * 1e-3,
+            0,
+            loudness
+          )
+          dummy.scale.set(
+            sharpness * 0.2,
+            sharpness * 0.2,
+            sharpness * 0.2
+          )
+          dummy.updateMatrix();
+          color.set(signalPalette[i])
+          imeshSignal.setColorAt(i, color)
+          imeshSignal.setMatrixAt(i, dummy.matrix);
+        }
+        imeshSignal.instanceMatrix.needsUpdate = true
+        imeshSignal.instanceColor.needsUpdate = true
+      }
     }
   }
   //
@@ -337,51 +349,55 @@ const render = () => {
   stats.update()
 }
 
-let rafId;
-const tick = () => {
-  render()
-  let rafId = requestAnimationFrame(tick);
-}
-
-// start the thing
-const audioFeaturesExtractor = new AudioFeaturesExtractor({
-  bufferSize,
-  onComplete: audioFeaturesExtractor => {
-
-    tl.to("#cover", {
-      duration: 1.0,
-      autoAlpha: 0,
-      ease: "power2.out",
-      onComplete: () => { }
-    });
-
-    // https://rxjs.dev/api/index/const/animationFrameScheduler#example
-    // schedules on the queue of code to be executed before the next browser repaint
-    tick()
-  }
-})
-
 const tl = gsap.timeline()
 tl.to("#cover", {
   duration: 2,
   autoAlpha: 1,
-  ease: "expo.inOut",
-  onComplete: () => { }
+  ease: "expo.inOut"
 })
 
 const btn = document.querySelector("#cover")
-const btn$ = fromEvent(btn, "click")
+
+const pause$ = fromEvent(document, "keydown")
   .pipe(
-    debounceTime(200),
-    first()
+    filter(e => e.keyCode === 32),
+    startWith(false),
+    scan(prev => !prev)
   )
-  .subscribe(event => {
-    tl.to(btn, {
-      duration: 2.,
-      autoAlpha: 0,
-      ease: "power2.out"
-    });
-    audioFeaturesExtractor.start()
+
+const meyda$ = audioFeaturesExtractor.start()
+
+const $start = fromEvent(btn, "click")
+  .pipe(
+    debounceTime(300),
+    first(),
+  )
+
+const render$ = animationFrames()
+  .pipe(
+    sampleTime(1000 / 60),
+    withLatestFrom(pause$),
+    filter(arr => !arr[1])
+  )
+
+combineLatest([
+  $start, meyda$, render$
+])
+  .subscribe(() => {
+    tl
+      .to(btn, {
+        duration: 2.,
+        autoAlpha: 0,
+        ease: "power2.out"
+      })
+      .to("#cover", {
+        duration: 1.0,
+        delay: 2.,
+        autoAlpha: 0,
+        ease: "power2.out"
+      });
+
+    render()
   })
 
 // Mouse event stream emits on mousemove
