@@ -45,9 +45,8 @@ body {
 }
 
 #canvas {
-  /* 4/3 */
-  width: 133vh;
-  height: 100vh;
+  aspect-ratio: 4/3;
+  width: 100%;
   touch-action: none;
   display: block;
 }
