@@ -93,6 +93,7 @@ let renderer = new WebGLRenderer({
 });
 //renderer.outputEncoding = sRGBEncoding
 renderer.setPixelRatio(pixelRatio);
+//renderer.setAnimationLoop(()=> render())
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true
@@ -248,11 +249,27 @@ const pause$ = fromEvent(document, "keydown")
 
 const meyda$ = audioFeaturesExtractor.meyda$({ bufferSize })
 
-const $start = fromEvent(btn, "click")
+const start$ = fromEvent(btn, "click")
   .pipe(
     debounceTime(300),
     first(),
   )
+  
+ combineLatest([ start$, meyda$])
+  .subscribe( () => {
+    tl
+      .to(btn, {
+        duration: 1.,
+        autoAlpha: 0,
+        ease: "power2.out"
+      })
+      .to("#cover", {
+        duration: 1.0,
+        delay: 1.,
+        autoAlpha: 0,
+        ease: "power2.out"
+      });  
+  })
 
 const render$ = animationFrames()
   .pipe(
@@ -260,24 +277,7 @@ const render$ = animationFrames()
     withLatestFrom(pause$),
     filter(arr => !arr[1])
   )
-
-combineLatest([$start, meyda$, render$])
-  .subscribe(() => {
-    tl
-      .to(btn, {
-        duration: 2.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      })
-      .to("#cover", {
-        duration: 1.0,
-        delay: 2.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      });
-
-    render()
-  })
+  .subscribe(render)
 
 // functions
 

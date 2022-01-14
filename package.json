@@ -8,7 +8,7 @@
     "ngrok": "ngrok http -bind-tls=true --host-header=rewrite https://localhost:3000/",
     "build": "vite build",
     "preview": "vite preview",
-    "vite": "vite",
+    "vite": "vite --host",
     "lint": "npx eslint --color src/index.js",
     "lint:fix": "npx eslint --fix --color src/index.js",
     "lint:watch": "npx esw -w --fix --color src/index.js",
