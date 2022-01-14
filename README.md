@@ -5,8 +5,8 @@
  ┃╭━━┫╭━━╯╱┃┃╱╱┃━━┫╭╮┃┃━┫╭━┫┃┃╭┫┃┃┃╰╯┃
  ┃┃╱╱┃┃╱╱╱╱┃┃╱╱┣━━┃╰╯┃┃━┫╰━┫╰┫┃┃╰╯┃┃┃┃
  ╰╯╱╱╰╯╱╱╱╱╰╯╱╱╰━━┫╭━┻━━┻━━┻━┻╯╰━━┻┻┻╯
-  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱┃┃ 
-  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╰╯ Real-time FFT magnitude spectrum analyzer
+  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱┃┃ real-time audio features extraction
+  ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╰╯ && FFT spectrum analyzer
 
 ```
 
@@ -18,7 +18,7 @@
 
 [demo](https://threejs-meydajs-fftspectrum.surge.sh)
 
-longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features, used to affect the _threejs_ webgl fx
+longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features used to drive  _threejs_ webgl stuff.
 
 - Start project with `npm run dev`
 - open another tab with youtube music / bring any sound source closer to the microphone
