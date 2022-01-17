@@ -50,10 +50,10 @@ export function buttonStartObservable(btn) {
     )
 }
 
-export function renderObservable(pauseObservable) {
+export function renderObservable(pauseObservable, fps) {
   return animationFrames()
     .pipe(
-      auditTime(1000 / 60),
+      auditTime(1000 / fps),
       withLatestFrom(pauseObservable),
       filter(arr => !arr[1]),
       //startWith(init$)

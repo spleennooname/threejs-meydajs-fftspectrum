@@ -248,7 +248,7 @@ const meyda$ = audioFeaturesExtractor
 
 //const destroy$ = 
 
-const render$ = renderObservable(pause$)
+const render$ = renderObservable(pause$, 80)
   .subscribe(render)
 
 combineLatest([start$, meyda$])
