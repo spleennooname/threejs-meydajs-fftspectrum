@@ -14,6 +14,9 @@ import {
   sampleTime,
   scan,
   combineLatest,
+  takeUntil,
+  auditTime,
+  distinctUntilChanged
 } from "rxjs";
 
 import {
@@ -27,17 +30,15 @@ import {
   Mesh,
   Color,
   BufferGeometry,
+  BoxBufferGeometry,
   BufferAttribute,
   InstancedMesh,
   Vector2,
   //Vector3,
-  RawShaderMaterial,
   DynamicDrawUsage,
-  //sRGBEncoding,
   DoubleSide,
-  BoxBufferGeometry,
-  //MeshBasicMaterial,
-  MeshPhongMaterial
+  RawShaderMaterial,
+  MeshLambertMaterial
 } from "three"
 
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -46,16 +47,17 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 //
-import { getFFTs, getPalette, lerp, invlerp } from "./utils"
+import { getFFTs, getPalette, lerp, dpr, invlerp } from "./utils"
 //
 import { fs, vs } from "./materials/line"
 
-import {
-  AudioFeaturesExtractor,
-} from "./AudioFeaturesExtractor"
+import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-const bufferSize = 512;
-const numLines = 50;
+import { resizeObservable, pauseKeyObservable, buttonStartObservable, renderObservable } from "./observables";
+
+const fftSize = 512;
+
+const numLines = 40;
 
 const aspectRatio = 4 / 3;
 
@@ -63,37 +65,31 @@ const aspectRatio = 4 / 3;
 const paletteLabel = "picnic"
 
 // for instancedmesh computation
-let imeshSignal,
+let iSignalMesh,
   dummy = new Object3D(),
   color = new Color();
 
 const stats = new Stats();
 document.body.appendChild(stats.dom);
 
-const pixelRatio = Math.min(1.0, window.devicePixelRatio || 1)
+const pixelRatio = dpr
 
 const scene = new Scene();
 
-const camera = new PerspectiveCamera(75, aspectRatio, 5, 100);
+const camera = new PerspectiveCamera(75, aspectRatio, 5, 1e3);
 camera.position.set(0, -5, 5);
 camera.lookAt(0, 0, 0);
 
+const btn = document.querySelector("#cover")
+
 const canvas = document.querySelector("#canvas")
-
-let w = canvas.clientWidth * pixelRatio
-let h = canvas.clientHeight * pixelRatio
-
-let resolution = new Vector2(w, h)
 
 let renderer = new WebGLRenderer({
   canvas,
   antialias: false,
-  alpha: false,
   powerPreference: "high-performance"
 });
-//renderer.outputEncoding = sRGBEncoding
 renderer.setPixelRatio(pixelRatio);
-//renderer.setAnimationLoop(()=> render())
 
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true
@@ -116,6 +112,10 @@ scene.add(directionalLight);
 
 const renderPass = new RenderPass(scene, camera);
 
+let w = canvas.clientWidth * pixelRatio
+let h = canvas.clientHeight * pixelRatio
+let resolution = new Vector2(w, h)
+
 const bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
 bloomPass.threshold = 0.0
 bloomPass.strength = 1.75;
@@ -124,8 +124,6 @@ bloomPass.radius = 1.5;
 const composer = new EffectComposer(renderer);
 composer.addPass(renderPass);
 composer.addPass(bloomPass);
-
-//bloomPass.renderToScreen = true;
 
 // Unchanging variables
 //const length = 1;
@@ -144,7 +142,7 @@ composer.addPass(bloomPass);
 
 // SETUP FFTS
 
-let ffts = getFFTs(numLines, bufferSize);
+let ffts = getFFTs(numLines, fftSize);
 
 // get meshes color
 let colors = getPalette(paletteLabel, ffts.length)
@@ -162,20 +160,22 @@ let colors = getPalette(paletteLabel, ffts.length)
 
 // const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
 //const fftMatL = new MeshBasicMaterial()
-const fftMatP = new MeshPhongMaterial({ color: 0xffffff })
+const fftMat = new MeshLambertMaterial({ color: 0xffffff })
 
 // 1. INSTANCED MESH for signal
 const baseGeom = new BoxBufferGeometry(0.25)
-imeshSignal = new InstancedMesh(baseGeom, fftMatP, bufferSize);
-imeshSignal.instanceMatrix.setUsage(DynamicDrawUsage);
-imeshSignal.position.set(-8, 0, 0)
-imeshSignal.scale.set(1, 1, 1)
+iSignalMesh = new InstancedMesh(baseGeom, fftMat, fftSize);
+iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+iSignalMesh.position.set(-8, 0, 0)
+iSignalMesh.scale.set(1, 1, 1)
 
-const signalPalette = getPalette(paletteLabel, bufferSize)
+const signalPalette = getPalette(paletteLabel, fftSize)
   .map(a => new Color().fromArray(a))
+
 signalPalette
-  .forEach((c, i) => imeshSignal.setColorAt(i, c));
-scene.add(imeshSignal);
+  .forEach((c, i) => iSignalMesh.setColorAt(i, c));
+
+scene.add(iSignalMesh);
 
 // 2. group of meshes for fft spectrum
 let fftMeshes = new Group();
@@ -204,6 +204,7 @@ for (let i = 0; i < ffts.length; i++) {
     fftMeshes.add(mesh);
   }
 }
+
 scene.add(fftMeshes);
 
 // buffer line material
@@ -217,15 +218,12 @@ scene.add(fftMeshes);
 });
 let bufferLineGeometry = new BufferGeometry();
 let bufferLine = new Line(bufferLineGeometry, bufferLineMaterial);
-bufferLineGeometry.setAttribute("position", new BufferAttribute(new Float32Array(bufferSize * 3), 3));
-bufferLineGeometry.setDrawRange(0, bufferSize); */
+bufferLineGeometry.setAttribute("position", new BufferAttribute(new Float32Array(fftSize * 3), 3));
+bufferLineGeometry.setDrawRange(0, fftSize); */
 
 // scene.add(centroidArrow);
 // scene.add(rolloffArrow);
 // scene.add(rmsArrow);
-
-const resizeObserver = new ResizeObserver(resizeCanvasToDisplaySize);
-resizeObserver.observe(canvas, { box: "content-box" })
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -236,27 +234,26 @@ tl.to("#cover", {
   ease: "expo.inOut"
 })
 
-const btn = document.querySelector("#cover")
-
-const pause$ = fromEvent(document, "keydown")
-  .pipe(
-    filter(e => e.keyCode === 32),
-    startWith(false),
-    scan(prev => !prev)
-  )
-
 // observables
 
-const meyda$ = audioFeaturesExtractor.meyda$({ bufferSize })
+const resize$ = resizeObservable(canvas, { box: "device-pixel-content-box" })
+  .subscribe(resize)
 
-const start$ = fromEvent(btn, "click")
-  .pipe(
-    debounceTime(300),
-    first(),
-  )
-  
- combineLatest([ start$, meyda$])
-  .subscribe( () => {
+const pause$ = pauseKeyObservable(32)
+
+const start$ = buttonStartObservable(btn)
+
+const meyda$ = audioFeaturesExtractor
+  .meyda$({ fftSize })
+
+//const destroy$ = 
+
+const render$ = renderObservable(pause$)
+  .subscribe(render)
+
+combineLatest([start$, meyda$])
+  .pipe()
+  .subscribe(() => {
     tl
       .to(btn, {
         duration: 1.,
@@ -268,40 +265,25 @@ const start$ = fromEvent(btn, "click")
         delay: 1.,
         autoAlpha: 0,
         ease: "power2.out"
-      });  
+      });
   })
-
-const render$ = animationFrames()
-  .pipe(
-    sampleTime(1000 / 60),
-    withLatestFrom(pause$),
-    filter(arr => !arr[1])
-  )
-  .subscribe(render)
 
 // functions
 
-function resizeCanvasToDisplaySize() {
+function resize() {
 
-  const { clientWidth, clientHeight, width, height } = renderer.domElement;
+  const { clientWidth, clientHeight } = renderer.domElement;
 
-  const pixelRatio = Math.min(1.0, window.devicePixelRatio || 1);
+  let w = Math.floor((clientWidth) * pixelRatio);
+  let h = Math.floor((clientHeight) * pixelRatio);
 
-  let w = Math.floor((clientWidth) * pixelRatio | 0);
-  let h = Math.floor((clientHeight) * pixelRatio | 0);
+  //console.log("resize", w, h, pixelRatio)
 
-  const needResize = width !== w || height !== h;
-  if (needResize) {
-    renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
 
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-
-    composer.setSize(w, h);
-
-    // target rendeer stuff
-    //postfx.resize();
-  }
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
 }
 
 function render() {
@@ -346,7 +328,7 @@ function render() {
   // render Spectral Centroid arrow
   /*  if (features.spectralCentroid) {
      centroidArrow.position.set(
-       12 + 8 * Math.log10(features.spectralCentroid / (bufferSize / 2)),
+       12 + 8 * Math.log10(features.spectralCentroid / (fftSize / 2)),
        -6,
        -15
      );
@@ -373,9 +355,9 @@ function render() {
 
   /* const bl = bufferLine.geometry.attributes.position
   if (!!signal) {
-    for (let i = 0; i < bufferSize; i++) {
+    for (let i = 0; i < fftSize; i++) {
       let index = i * 3
-      bl.array[index] = -11 + (22 * i) / bufferSize;
+      bl.array[index] = -11 + (22 * i) / fftSize;
       bl.array[index + 1] = 4 + signal[i] * 5;
       bl.array[index + 2] = -25;
     }
@@ -383,10 +365,10 @@ function render() {
   }
 */
   // domain-time spectrum via instancedgeometry
-  if (!!signal && imeshSignal) {
-    for (let i = 0; i < bufferSize; i++) {
+  if (!!signal && iSignalMesh) {
+    for (let i = 0; i < fftSize; i++) {
       dummy.position.set(
-        (15 * i) / bufferSize,
+        (15 * i) / fftSize,
         signal[i] * 10,
         0
       );
@@ -402,11 +384,11 @@ function render() {
       )
       dummy.updateMatrix();
       color.set(signalPalette[i])
-      imeshSignal.setColorAt(i, color)
-      imeshSignal.setMatrixAt(i, dummy.matrix);
+      iSignalMesh.setColorAt(i, color)
+      iSignalMesh.setMatrixAt(i, dummy.matrix);
     }
-    imeshSignal.instanceMatrix.needsUpdate = true
-    imeshSignal.instanceColor.needsUpdate = true
+    iSignalMesh.instanceMatrix.needsUpdate = true
+    iSignalMesh.instanceColor.needsUpdate = true
   }
 
   controls.update()
@@ -416,12 +398,10 @@ function render() {
   stats.update()
 }
 
-// Mouse event stream emits on mousemove
-/* const mouse$ = fromEvent(canvas, 'mousemove')
-  .pipe(
-    map(e => ({ x: e.clientX, y: e.clientY })),
-    startWith({ x: 0, y: 0 })
-  )
-  .subscribe(event => {
-    console.log(event)
-  }) */
+function start() {
+  renderer.setAnimationLoop(render)
+}
+
+function stop() {
+  renderer.setAnimationLoop(null)
+}
