@@ -4,19 +4,8 @@ import gsap from "gsap"
 import Stats from "stats.js"
 
 import {
-  fromEvent,
-  debounceTime,
-  animationFrames,
-  filter,
-  startWith,
-  withLatestFrom,
-  first,
-  sampleTime,
-  scan,
+  tap,
   combineLatest,
-  takeUntil,
-  auditTime,
-  distinctUntilChanged
 } from "rxjs";
 
 import {
@@ -55,6 +44,11 @@ import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
 import { resizeObservable, pauseKeyObservable, buttonStartObservable, renderObservable } from "./observables";
 
+
+
+const stats = new Stats();
+document.body.appendChild(stats.dom);
+
 const fftSize = 512;
 
 const numLines = 40;
@@ -69,14 +63,12 @@ let iSignalMesh,
   dummy = new Object3D(),
   color = new Color();
 
-const stats = new Stats();
-document.body.appendChild(stats.dom);
 
 const pixelRatio = dpr
 
 const scene = new Scene();
 
-const camera = new PerspectiveCamera(75, aspectRatio, 5, 1e3);
+const camera = new PerspectiveCamera(75, aspectRatio, 5, 1e4);
 camera.position.set(0, -5, 5);
 camera.lookAt(0, 0, 0);
 
@@ -94,7 +86,7 @@ renderer.setPixelRatio(pixelRatio);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true
 controls.enablePan = false
-controls.maxDistance = 15;
+controls.maxDistance = 25;
 controls.minDistance = 7;
 controls.dampingFactor = 5e-2
 // x
@@ -140,13 +132,12 @@ composer.addPass(bloomPass);
 //const lineMaterial = new LineBasicMaterial({ color: 0x00fff0 });
 //const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
 
-// SETUP FFTS
+// fft
 
 let ffts = getFFTs(numLines, fftSize);
 
 // get meshes color
 let colors = getPalette(paletteLabel, ffts.length)
-//let palette = colors.map(c => new Color(c.r, c.g, c.b))
 
 /* const fftMat = new RawShaderMaterial({
   uniforms: {
@@ -158,12 +149,11 @@ let colors = getPalette(paletteLabel, ffts.length)
   side: DoubleSide
 }); */
 
-// const fftMatN = new MeshNormalMaterial({ opacity: 0.7 })
-//const fftMatL = new MeshBasicMaterial()
 const fftMat = new MeshLambertMaterial({ color: 0xffffff })
 
 // 1. INSTANCED MESH for signal
 const baseGeom = new BoxBufferGeometry(0.25)
+
 iSignalMesh = new InstancedMesh(baseGeom, fftMat, fftSize);
 iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
 iSignalMesh.position.set(-8, 0, 0)
@@ -220,19 +210,11 @@ let bufferLineGeometry = new BufferGeometry();
 let bufferLine = new Line(bufferLineGeometry, bufferLineMaterial);
 bufferLineGeometry.setAttribute("position", new BufferAttribute(new Float32Array(fftSize * 3), 3));
 bufferLineGeometry.setDrawRange(0, fftSize); */
-
 // scene.add(centroidArrow);
 // scene.add(rolloffArrow);
 // scene.add(rmsArrow);
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
-
-const tl = gsap.timeline()
-tl.to("#cover", {
-  duration: 2,
-  autoAlpha: 1,
-  ease: "expo.inOut"
-})
 
 // observables
 
@@ -249,7 +231,19 @@ const meyda$ = audioFeaturesExtractor
 //const destroy$ = 
 
 const render$ = renderObservable(pause$, 80)
-  .subscribe(render)
+  .pipe(
+    tap(render)
+  )
+  .subscribe()
+
+const tl = gsap.timeline()
+
+tl.to("#cover", {
+  duration: 2,
+  autoAlpha: 1,
+  ease: "expo.inOut"
+})
+
 
 combineLatest([start$, meyda$])
   .pipe()
@@ -277,8 +271,6 @@ function resize() {
   let w = Math.floor((clientWidth) * pixelRatio);
   let h = Math.floor((clientHeight) * pixelRatio);
 
-  //console.log("resize", w, h, pixelRatio)
-
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
 
@@ -286,15 +278,13 @@ function resize() {
   composer.setSize(w, h);
 }
 
-function render() {
+function render([{ timestamp, elapsed }]) {
 
   if (!audioFeaturesExtractor) return
 
   const features = audioFeaturesExtractor.features();
 
   if (!features) return
-
-  const time = performance.now();
 
   const signal = audioFeaturesExtractor.signal();
 
@@ -316,9 +306,10 @@ function render() {
     const position = geom.getAttribute("position")
     //console.log(geom.attributes.position.count)
     for (let j = 0; j < position.count * 3; j++) {
-      let index = j * 3;
+      const index = j * 3;
+      // freq
       position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-      // eslint-disable-next-line no-loss-of-precision
+
       position.array[index + 1] = -10. + 0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
       position.array[index + 2] = +15 - i * 1.1
     }
@@ -373,7 +364,7 @@ function render() {
         0
       );
       dummy.rotation.set(
-        (time + loudness) * 1e-3,
+        (timestamp + loudness) * 1e-3,
         0,
         loudness
       )
