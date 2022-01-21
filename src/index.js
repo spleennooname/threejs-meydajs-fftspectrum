@@ -5,6 +5,7 @@ import Stats from "stats.js"
 
 import {
   tap,
+  concat, forkJoin, finalize,
   combineLatest,
 } from "rxjs";
 
@@ -42,9 +43,15 @@ import { fs, vs } from "./materials/line"
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-import { resizeObservable, pauseKeyObservable, buttonStartObservable, renderObservable } from "./observables";
+import { resize$, pauseKey$, buttonStart$, render$ } from "./lib";
 
+const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
+gsap.to("#cover", {
+  duration: 2,
+  autoAlpha: 1,
+  ease: "expo.inOut"
+})
 
 const stats = new Stats();
 document.body.appendChild(stats.dom);
@@ -62,7 +69,6 @@ const paletteLabel = "picnic"
 let iSignalMesh,
   dummy = new Object3D(),
   color = new Color();
-
 
 const pixelRatio = dpr
 
@@ -214,55 +220,42 @@ bufferLineGeometry.setDrawRange(0, fftSize); */
 // scene.add(rolloffArrow);
 // scene.add(rmsArrow);
 
-const audioFeaturesExtractor = new AudioFeaturesExtractor();
+concat(
 
-// observables
+  combineLatest([
+    buttonStart$(btn),
+    audioFeaturesExtractor.meyda$({ fftSize })
+  ])
+    .pipe(finalize(() => show())),
 
-const resize$ = resizeObservable(canvas, { box: "device-pixel-content-box" })
-  .subscribe(resize)
+  forkJoin({
+    
+    "resize": resize$(canvas)
+      .pipe(tap(resize)),
 
-const pause$ = pauseKeyObservable(32)
-
-const start$ = buttonStartObservable(btn)
-
-const meyda$ = audioFeaturesExtractor
-  .meyda$({ fftSize })
-
-//const destroy$ = 
-
-const render$ = renderObservable(pause$, 80)
-  .pipe(
-    tap(render)
-  )
-  .subscribe()
-
-const tl = gsap.timeline()
-
-tl.to("#cover", {
-  duration: 2,
-  autoAlpha: 1,
-  ease: "expo.inOut"
-})
-
-
-combineLatest([start$, meyda$])
-  .pipe()
-  .subscribe(() => {
-    tl
-      .to(btn, {
-        duration: 1.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      })
-      .to("#cover", {
-        duration: 1.0,
-        delay: 1.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      });
+    "render": render$( pauseKey$(32), 80)
+      .pipe(tap(render))
   })
+)
+.subscribe()
 
 // functions
+
+function show(){
+  gsap
+  .timeline()
+  .to(btn, {
+    duration: 1.,
+    autoAlpha: 0,
+    ease: "power2.out"
+  })
+  .to("#cover", {
+    duration: 1.0,
+    delay: 1.,
+    autoAlpha: 0,
+    ease: "power2.out"
+  });
+}
 
 function resize() {
 
@@ -278,7 +271,7 @@ function resize() {
   composer.setSize(w, h);
 }
 
-function render([{ timestamp, elapsed }]) {
+function render([{ timestamp }]) {
 
   if (!audioFeaturesExtractor) return
 
@@ -387,12 +380,4 @@ function render([{ timestamp, elapsed }]) {
   composer.render();
 
   stats.update()
-}
-
-function start() {
-  renderer.setAnimationLoop(render)
-}
-
-function stop() {
-  renderer.setAnimationLoop(null)
 }
