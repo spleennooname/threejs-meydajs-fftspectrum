@@ -22,7 +22,7 @@ export const VIDEO_CONSTRAINS = {
 }
 export class AudioFeaturesExtractor {
 
-  meyda$({constrains = AUDIO_CONSTRAINS, bufferSize = 512}) {
+  meydaPromise({constrains = AUDIO_CONSTRAINS, bufferSize = 512}) {
     return navigator
       .mediaDevices
       .getUserMedia(constrains)

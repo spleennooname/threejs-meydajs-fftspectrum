@@ -6,6 +6,7 @@ import Stats from "stats.js"
 import {
   tap,
   concat, 
+  from,
   forkJoin, 
   finalize,
   combineLatest,
@@ -228,7 +229,7 @@ concat(
 
   combineLatest([
     buttonStart$(btn),
-    audioFeaturesExtractor.meyda$({ fftSize })
+    from(audioFeaturesExtractor.meydaPromise({ fftSize }))
   ])
     .pipe(finalize(() => show())),
 
@@ -259,6 +260,7 @@ function show(){
       autoAlpha: 0,
       ease: "power2.out"
     });
+    //console.log("show")
 }
 
 function resize() {
@@ -273,6 +275,8 @@ function resize() {
 
   renderer.setSize(w, h);
   composer.setSize(w, h);
+
+  console.log("resize")
 }
 
 function render([{ timestamp }]) {
