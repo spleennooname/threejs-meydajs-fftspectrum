@@ -5,7 +5,9 @@ import Stats from "stats.js"
 
 import {
   tap,
-  concat, forkJoin, finalize,
+  concat, 
+  forkJoin, 
+  finalize,
   combineLatest,
 } from "rxjs";
 
@@ -43,7 +45,7 @@ import { fs, vs } from "./materials/line"
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-import { resize$, pauseKey$, buttonStart$, render$ } from "./lib";
+import { resizeObserver$, resize$, pauseKey$, buttonStart$, render$ } from "./lib";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -75,7 +77,7 @@ const pixelRatio = dpr
 const scene = new Scene();
 
 const camera = new PerspectiveCamera(75, aspectRatio, 5, 1e4);
-camera.position.set(0, -5, 5);
+camera.position.set(0, -5, 10);
 camera.lookAt(0, 0, 0);
 
 const btn = document.querySelector("#cover")
@@ -203,6 +205,8 @@ for (let i = 0; i < ffts.length; i++) {
 
 scene.add(fftMeshes);
 
+resize()
+
 // buffer line material
 /* const bufferLineMaterial = new RawShaderMaterial({
   uniforms: {
@@ -243,18 +247,18 @@ concat(
 
 function show(){
   gsap
-  .timeline()
-  .to(btn, {
-    duration: 1.,
-    autoAlpha: 0,
-    ease: "power2.out"
-  })
-  .to("#cover", {
-    duration: 1.0,
-    delay: 1.,
-    autoAlpha: 0,
-    ease: "power2.out"
-  });
+    .timeline()
+    .to(btn, {
+      duration: 1.,
+      autoAlpha: 0,
+      ease: "power2.out"
+    })
+    .to("#cover", {
+      duration: 1.0,
+      delay: 1.,
+      autoAlpha: 0,
+      ease: "power2.out"
+    });
 }
 
 function resize() {

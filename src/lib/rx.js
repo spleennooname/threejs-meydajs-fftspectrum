@@ -3,7 +3,6 @@
 import {
   Observable,
   debounceTime,
-  from,
   fromEvent,
   filter,
   startWith,
@@ -12,21 +11,28 @@ import {
   animationFrames,
   withLatestFrom,
   auditTime,
-  map,
   distinctUntilChanged
 } from "rxjs";
 
-export function resize$(el, settings = { box: "device-pixel-content-box" }) {
+export function resizeObserver$(el, settings = { box: "device-pixel-content-box" }) {
   return new Observable(subscriber => {
     let ro = new ResizeObserver(entries => {
       subscriber.next(entries);
     });
     // Observe one or multiple elements
-    ro.observe(el, settings);
+    ro.observe(el);
     return function unsubscribe() {
       ro.unobserve(el);
     }
   })
+    .pipe(
+      debounceTime(250),
+      distinctUntilChanged()
+    )
+}
+
+export function resize$() {
+  return fromEvent(window, "resize")
     .pipe(
       debounceTime(250),
       distinctUntilChanged()
