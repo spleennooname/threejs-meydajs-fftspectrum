@@ -59,7 +59,7 @@ export function buttonStart$(btn) {
 export function render$(pause$, fps) {
   return animationFrames()
     .pipe(
-      auditTime(1000 / fps),
+      //auditTime(1000 / fps),
       withLatestFrom(pause$),
       filter(arr => !arr[1]),
       //takeUntil(destroy$)
