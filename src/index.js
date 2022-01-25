@@ -46,7 +46,7 @@ import { fs, vs } from "./materials/line"
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-import { resizeObserver$, resize$, pauseKey$, buttonStart$, render$ } from "./lib";
+import { resize$, resizeObserver$, pauseKey$, buttonStart$, render$ } from "./lib";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -84,6 +84,8 @@ camera.lookAt(0, 0, 0);
 const btn = document.querySelector("#cover")
 
 const canvas = document.querySelector("#canvas")
+
+const container = document.querySelector("#container")
 
 let renderer = new WebGLRenderer({
   canvas,
@@ -148,16 +150,6 @@ let ffts = getFFTs(numLines, fftSize);
 // get meshes color
 let colors = getPalette(paletteLabel, ffts.length)
 
-/* const fftMat = new RawShaderMaterial({
-  uniforms: {
-    uColor: { value: new Color(1, 1, 1) }
-  },
-  vertexShader: vs,
-  fragmentShader: fs,
-  transparent: true,
-  side: DoubleSide
-}); */
-
 const fftMat = new MeshLambertMaterial({ color: 0xffffff })
 
 // 1. INSTANCED MESH for signal
@@ -206,7 +198,7 @@ for (let i = 0; i < ffts.length; i++) {
 
 scene.add(fftMeshes);
 
-resize()
+//resize()
 
 // buffer line material
 /* const bufferLineMaterial = new RawShaderMaterial({
@@ -235,7 +227,7 @@ concat(
 
   forkJoin({
     
-    "resize": resize$(canvas)
+    "resize": resizeObserver$(container)
       .pipe(tap(resize)),
 
     "render": render$( pauseKey$(32), 80)
@@ -260,7 +252,6 @@ function show(){
       autoAlpha: 0,
       ease: "power2.out"
     });
-    //console.log("show")
 }
 
 function resize() {
@@ -283,36 +274,42 @@ function render([{ timestamp }]) {
 
   if (!audioFeaturesExtractor) return
 
-  const features = audioFeaturesExtractor.features();
+  const features = audioFeaturesExtractor.features([
+    "perceptualSharpness",
+    "perceptualSpread",
+    "spectralFlatness",
+    "spectralKurtosis",
+    "amplitudeSpectrum", // fft
+    "loudness"
+  ]);
 
   if (!features) return
-
-  const signal = audioFeaturesExtractor.signal();
 
   // fill ffts spectrum buffers
   ffts.pop();
   ffts.unshift(features.amplitudeSpectrum);
 
-  const loudness = invlerp(7, 40, features.loudness.total)
-  const rms = features.rms
-  const sharpness = features.perceptualSharpness //invlerp(0.7, 4, features.perceptualSharpness)
+  const loudness = invlerp(3, 50, features.loudness.total)
 
-  // affect blooming with sharpness and loudness 
+  const { perceptualSpread, perceptualSharpness } = features
+
+  // affect blooming with perceptualSharpnes / loudness 
   bloomPass.strength = lerp(1, 1.25, loudness)
-  bloomPass.radius = lerp(1, 2.5, sharpness)
+  bloomPass.radius = lerp(1, 2.5, perceptualSharpness)
 
   // render ffts
   for (let i = 0; i < ffts.length; i++) {
+
     const geom = fftMeshes.children[i].geometry
     const position = geom.getAttribute("position")
-    //console.log(geom.attributes.position.count)
+
     for (let j = 0; j < position.count * 3; j++) {
       const index = j * 3;
-      // freq
-      position.array[index + 0] = +40.0 + 40 * Math.log10(j / ffts[i].length);
-
-      position.array[index + 1] = -10. + 0.5 + sharpness + 0.5 + (ffts[i][j]) * (1.5 * loudness + rms);
-      position.array[index + 2] = +15 - i * 1.1
+      // x -> frequency bins
+      position.array[index + 0] = -100 + 2 * j
+      // y -> magnitude 
+      position.array[index + 1] = -10 + perceptualSharpness + 0.5 + ffts[i][j] * (1.5 * loudness);
+      position.array[index + 2] = +15 - i * (1 + perceptualSpread)
     }
     position.needsUpdate = true;
   }
@@ -356,7 +353,8 @@ function render([{ timestamp }]) {
     bl.needsUpdate = true;
   }
 */
-  // domain-time spectrum via instancedgeometry
+  // domain-time  via instancedgeometry
+  const signal = audioFeaturesExtractor.signal();
   if (!!signal && iSignalMesh) {
     for (let i = 0; i < fftSize; i++) {
       dummy.position.set(
@@ -370,9 +368,9 @@ function render([{ timestamp }]) {
         loudness
       )
       dummy.scale.set(
-        sharpness * 0.2,
-        sharpness * 0.2,
-        sharpness * 0.2
+        loudness  * 0.2,
+        perceptualSharpness  * 0.2,
+        perceptualSharpness  * 0.2
       )
       dummy.updateMatrix();
       color.set(signalPalette[i])

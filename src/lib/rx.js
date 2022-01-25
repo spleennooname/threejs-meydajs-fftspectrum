@@ -14,12 +14,12 @@ import {
   distinctUntilChanged
 } from "rxjs";
 
-export function resizeObserver$(el, settings = { box: "device-pixel-content-box" }) {
+export function resizeObserver$(el) {
   return new Observable(subscriber => {
+    // https://web.dev/resize-observer/
     let ro = new ResizeObserver(entries => {
       subscriber.next(entries);
     });
-    // Observe one or multiple elements
     ro.observe(el);
     return function unsubscribe() {
       ro.unobserve(el);
