@@ -1,14 +1,12 @@
 
 export const vs = `
-    precision highp float;
-    precision highp int;
+    precision mediump float;
+    precision mediump int;
   
-    // three
     uniform mat4 viewMatrix;
     uniform mat4 projectionMatrix;
     uniform mat4 modelMatrix;
    
-    // 
     attribute vec3 position;
   
     uniform vec4 uColor;
@@ -25,7 +23,7 @@ export const vs = `
     }
   `
 export const fs = `
-    precision highp float;
+    precision mediump float;
   
     varying vec4 vColor;
   

@@ -18,7 +18,7 @@ export const AUDIO_CONSTRAINS = {
 }
 
 export const VIDEO_CONSTRAINS = {
-  video: { facingMode: 'user' } 
+  video: { facingMode: "user" } 
 }
 export class AudioFeaturesExtractor {
 

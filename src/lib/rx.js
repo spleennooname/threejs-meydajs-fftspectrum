@@ -10,7 +10,6 @@ import {
   scan,
   animationFrames,
   withLatestFrom,
-  auditTime,
   distinctUntilChanged
 } from "rxjs";
 
@@ -20,7 +19,13 @@ export function resizeObserver$(el) {
     let ro = new ResizeObserver(entries => {
       subscriber.next(entries);
     });
-    ro.observe(el);
+    try {
+      // only call us of the number of device pixels changed
+      ro.observe(el, {box: 'device-pixel-content-box'});
+    } catch (ex) {
+      // device-pixel-content-box is not supported so fallback to this
+      ro.observe(el, {box: 'content-box'});
+    }
     return function unsubscribe() {
       ro.unobserve(el);
     }
