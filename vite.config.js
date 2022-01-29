@@ -19,12 +19,12 @@ export default defineConfig(({ command, mode }) => {
         input: {
           index  : "./index.html",
         },
-        output:{
+        /* output:{
           manualChunks: {
             three: [ "three" ],
             meyda: [ "meyda" ]
           }
-        }
+        } */
       }
     }
   }

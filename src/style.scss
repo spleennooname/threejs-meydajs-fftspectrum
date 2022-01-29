@@ -27,7 +27,7 @@ body {
 
 body {
   position: relative;
-  background: #010101;
+  background: #000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizelegibility;
@@ -45,8 +45,8 @@ body {
 }
 
 #canvas {
-  //aspect-ratio: 4/3;
   width: 100%;
+  height: 100%;
   touch-action: none;
   display: block;
 }

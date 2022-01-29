@@ -1,4 +1,4 @@
-import FFTDemo from "./FFTDemo"
+import App from "./App"
 
-const demo = new FFTDemo();
+const demo = new App();
 demo.run$()

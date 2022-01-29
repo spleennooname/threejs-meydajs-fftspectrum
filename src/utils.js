@@ -40,6 +40,4 @@ export const clamp = (a, min = 0, max = 1) => Math.min(max, Math.max(min, a));
 
 export const range = (x1, y1, x2, y2, a) => lerp(x2, y2, invlerp(x1, y1, a));
 
-export const dpr = Math.min(1.0, window.devicePixelRatio || 1);
-
 export const iOS = /(iPad|iPhone|iPod)/g.test(navigator.userAgent);

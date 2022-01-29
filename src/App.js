@@ -9,7 +9,6 @@ import {
   tap,
   concat,
   from,
-  forkJoin,
   finalize,
   combineLatest,
 } from "rxjs";
@@ -42,13 +41,14 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { getFFTs, getPalette, lerp, dpr, invlerp } from "./utils"
-//
+import { getFFTs, getPalette, lerp, invlerp } from "./utils"
+
 import { fs, vs } from "./lib/materials/line"
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-import { resize$, resizeObserver$, pauseKey$, buttonStart$, render$ } from "./lib";
+import { pauseKey$,buttonStart$, render$ } from "./lib/rx";
+import { dpr, needsResize } from "./lib/three";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -56,20 +56,18 @@ const fftSize = 512;
 
 const numLines = 40;
 
-let ffts
-let signalPalette
-
-let renderer, camera, composer, bloomPass, controls
-let iSignalMesh, fftMeshes, iDummy, iColor
-
 const btn = document.querySelector("#cover")
-
 const canvas = document.querySelector("#canvas")
 
 const stats = new Stats();
 document.body.appendChild(stats.dom);
 
-export default class FTTDemo {
+let ffts, signalPalette
+
+let renderer, camera, composer, bloomPass, controls
+let iSignalMesh, fftMeshes, iDummy, iColor
+
+export default class App {
 
   init() {
 
@@ -196,7 +194,6 @@ export default class FTTDemo {
 
     scene.add(fftMeshes)
 
-    //this.resize()
     console.log("init")
   }
 
@@ -219,6 +216,14 @@ export default class FTTDemo {
   }
 
   render([{ timestamp }]) {
+
+    // https://threejs.org/manual/#en/responsive
+    if (needsResize({renderer, composer})) {
+      const canvas = renderer.domElement;
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+      console.log('resize')
+    }
 
     if (!audioFeaturesExtractor) return
 
@@ -297,22 +302,6 @@ export default class FTTDemo {
     stats.update()
   }
 
-  resize() {
-
-    const { clientWidth, clientHeight } = renderer.domElement;
-
-    let w = Math.floor((clientWidth) * dpr);
-    let h = Math.floor((clientHeight) * dpr);
-
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(w, h);
-    composer.setSize(w, h);
-
-    console.log("resize")
-  }
-
   run$() {
     gsap
       .timeline()
@@ -331,23 +320,12 @@ export default class FTTDemo {
           tap(() => this.init()),
           finalize(() => this.intro())
         ),
-
-      forkJoin({
-
-        "resize": resizeObserver$(document.querySelector("#container"))
-          .pipe(
-            tap(this.resize)
-          ),
-
-        "render": render$(pauseKey$(32), 80)
-          .pipe(
-            tap(this.render)
-          )
-      })
+      // render
+      render$(pauseKey$(32), 80)
         .pipe(
-          tap(console.log)
+          tap(this.render)
         )
     )
-      .subscribe(console.log)
+    .subscribe()
   }
 }
