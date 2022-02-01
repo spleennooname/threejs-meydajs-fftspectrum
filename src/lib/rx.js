@@ -61,7 +61,7 @@ export function buttonStart$(btn) {
     )
 }
 
-export function render$(pause$, fps) {
+export function renderWithPause$(pause$) {
   return animationFrames()
     .pipe(
       //auditTime(1000 / fps),

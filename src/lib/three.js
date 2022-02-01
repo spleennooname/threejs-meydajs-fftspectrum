@@ -1,4 +1,4 @@
-export * from "./materials/line"
+export * from "../shaders/materials/line"
 
 export const dpr = Math.min(1.0, window.devicePixelRatio || 1);
 

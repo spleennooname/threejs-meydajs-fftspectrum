@@ -119,6 +119,11 @@ body {
   font-size: 20px;
 }
 
-.dg.ac {
-  z-index: 3!important;
+#stats {
+  position: fixed;
+  bottom: 0;
+  z-index: 666; 
+  > div{
+    position: relative!important;
+  }
 }

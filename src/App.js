@@ -39,45 +39,99 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
+//import DoubleBuffer from './DoubleBuffer'
+
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { getFFTs, getPalette, lerp, invlerp } from "./utils"
+import { getFFTs, getPalette, invlerp } from "./utils"
 
-import { fs, vs } from "./lib/materials/line"
+import { fs, vs } from "./shaders/materials/line"
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
 
-import { pauseKey$,buttonStart$, render$ } from "./lib/rx";
+import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
 import { dpr, needsResize } from "./lib/three";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
 const fftSize = 512;
 
-const numLines = 40;
+const numLines = 50;
 
 const btn = document.querySelector("#cover")
 const canvas = document.querySelector("#canvas")
 
 const stats = new Stats();
-document.body.appendChild(stats.dom);
+document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette
 
-let renderer, camera, composer, bloomPass, controls
+let renderer, camera, composer, bloomPass, controls, fbo
 let iSignalMesh, fftMeshes, iDummy, iColor
+
+const params = {
+  amount: 10,
+  xscale: 50
+}
+
+const audio = {
+  loudness:0,
+  perceptualSharpness:0,
+  perceptualSpread:0,
+  spectralFlatness:0
+};
+
+const gui = new Pane({
+  title: "controls",
+  expanded: true,
+});
+
+gui.addInput(params, "amount", { min: 1, max: 50 })
+gui.addInput(params, "xscale", { min: 20, max: 100 })
+
+gui.addMonitor(audio, "loudness", {
+  view: "graph",
+  min: 0,
+  max: 1,
+});
+// 0 = not rich, 1 = very rich
+gui.addMonitor(audio, "perceptualSpread", {
+  view: "graph",
+  min: 0,
+  max: 1,
+});
+// 0 = not sharp, 1 very sharp
+gui.addMonitor(audio, "perceptualSharpness", {
+  view: "graph",
+  min: 0,
+  max: 1,
+});
+// 1= flat 0 = noisy
+gui.addMonitor(audio, "spectralFlatness", {
+  view: "graph",
+  min: 0,
+  max: 1,
+}); 
+// 1 = noisy, 0 = flat
+/* gui.addMonitor(audio, "spectralKurtosis", {
+  view: "graph",
+  min: 0,
+  max: 1,
+});
+ */
+/* gui.on("change", () => {
+
+
+})
+ */
 
 export default class App {
 
   init() {
 
-    // check https://github.com/bpostlethwaite/colormap
-    const paletteLabel = "picnic"
-
     // for instancedmesh computation
-
-    iDummy = new Object3D(),
-      iColor = new Color();
+    iDummy = new Object3D();
+    iColor = new Color();
 
     const scene = new Scene();
 
@@ -87,7 +141,7 @@ export default class App {
 
     renderer = new WebGLRenderer({
       canvas,
-      antialias: true,
+      antialias: false,
       powerPreference: "high-performance"
     });
     renderer.setPixelRatio(dpr);
@@ -117,10 +171,13 @@ export default class App {
     let h = canvas.clientHeight * dpr
     let resolution = new Vector2(w, h)
 
+    //fbo = new DoubleBuffer({ width: w, height: h});
+
+
     bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
     bloomPass.threshold = 0.0
     bloomPass.strength = 1.75;
-    bloomPass.radius = 1.5;
+    bloomPass.radius = 1.5; 
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
@@ -154,6 +211,9 @@ export default class App {
     iSignalMesh.scale.set(1, 1, 1)
 
     // get meshes color
+    // check https://github.com/bpostlethwaite/colormap
+    const paletteLabel = "picnic"
+
     let colors = getPalette(paletteLabel, ffts.length)
 
     signalPalette = getPalette(paletteLabel, fftSize)
@@ -218,7 +278,7 @@ export default class App {
   render([{ timestamp }]) {
 
     // https://threejs.org/manual/#en/responsive
-    if (needsResize({renderer, composer})) {
+    if (needsResize({ renderer, composer })) {
       const canvas = renderer.domElement;
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
@@ -231,7 +291,6 @@ export default class App {
       "perceptualSharpness",
       "perceptualSpread",
       "spectralFlatness",
-      "spectralKurtosis",
       "amplitudeSpectrum", // fft
       "loudness"
     ]);
@@ -246,10 +305,15 @@ export default class App {
 
     const { perceptualSpread, perceptualSharpness } = features
 
-    // affect blooming with perceptualSharpnes / loudness 
-    bloomPass.strength = lerp(1, 1.25, loudness)
-    bloomPass.radius = lerp(1, 2.5, perceptualSharpness)
+    audio.loudness = loudness;
+    audio.perceptualSharpness = features.perceptualSharpness
+    audio.perceptualSpread = features.perceptualSpread
+    //audio.spectralFlatness = features.spectralFlatness
 
+    // affect blooming with perceptualSharpnes / loudness 
+    //bloomPass.strength = lerp(1, 1.25, loudness)
+    //bloomPass.radius = lerp(1, 3, perceptualSharpness)
+    
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
 
@@ -259,10 +323,11 @@ export default class App {
       for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
         // x -> frequency bins
-        position.array[index + 0] = -100 + 2 * j
+        // https://www.desmos.com/calculator/ss4rcedsl4
+        position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);  
         // y -> magnitude 
-        position.array[index + 1] = -10 + perceptualSharpness + 0.5 + ffts[i][j] * (1.5 * loudness);
-        position.array[index + 2] = +15 - i * (1 + perceptualSpread)
+        position.array[index + 1] = -15 + perceptualSharpness + ffts[i][j] * (params.amount * loudness);
+        position.array[index + 2] = +15 - i * (5 * perceptualSpread)
       }
       position.needsUpdate = true;
     }
@@ -273,11 +338,11 @@ export default class App {
       for (let i = 0; i < fftSize; i++) {
         iDummy.position.set(
           (15 * i) / fftSize,
-          signal[i] * 10,
+          signal[i] * 30,
           0
         );
         iDummy.rotation.set(
-          (timestamp + loudness) * 1e-3,
+          (timestamp + audio.loudness) * 1e-3,
           0,
           loudness
         )
@@ -321,11 +386,11 @@ export default class App {
           finalize(() => this.intro())
         ),
       // render
-      render$(pauseKey$(32), 80)
+      renderWithPause$( pauseKey$(32) )
         .pipe(
           tap(this.render)
         )
     )
-    .subscribe()
+      .subscribe()
   }
 }

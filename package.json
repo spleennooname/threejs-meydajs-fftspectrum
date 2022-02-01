@@ -41,6 +41,7 @@
     "stats.js": "^0.17.0",
     "three": "^0.136.0",
     "three-instanced-uniforms-mesh": "^0.45.0",
+    "three-multipass-post-processing": "github:martinlaxenaire/three-multipass-post-processing",
     "tweakpane": "^3.0.7"
   }
 }
