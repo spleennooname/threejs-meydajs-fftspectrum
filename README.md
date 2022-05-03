@@ -16,7 +16,7 @@
 
 [![demo 1080p - chrome windows10](https://img.youtube.com/vi/Lvakr96Llcg/0.jpg)](https://www.youtube.com/watch?v=Lvakr96Llcg)
 
-[demo](https://threejs-meydajs-fftspectrum.surge.sh)
+[demo](https://fft-spectrum.netlify.app/)
 
 longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features used to drive  _threejs_ webgl stuff.
 
