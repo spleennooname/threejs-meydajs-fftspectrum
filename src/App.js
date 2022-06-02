@@ -308,7 +308,7 @@ export default class App {
     audio.loudness = loudness;
     audio.perceptualSharpness = features.perceptualSharpness
     audio.perceptualSpread = features.perceptualSpread
-    //audio.spectralFlatness = features.spectralFlatness
+    audio.spectralFlatness = features.spectralFlatness
 
     // affect blooming with perceptualSharpnes / loudness 
     //bloomPass.strength = lerp(1, 1.25, loudness)
