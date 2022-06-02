@@ -10,13 +10,13 @@
 
 ```
 
-![threejs r133](https://img.shields.io/badge/three-v133-green) ![meyda v5.2.2](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.0](https://img.shields.io/badge/rxjs-v7.0-green)
+![threejs r141](https://img.shields.io/badge/three-v133-green) ![meyda v5.4.0](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.5.5](https://img.shields.io/badge/rxjs-v7.0-green)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
 [![demo 1080p - chrome windows10](https://img.youtube.com/vi/Lvakr96Llcg/0.jpg)](https://www.youtube.com/watch?v=Lvakr96Llcg)
 
-[demo](https://fft-spectrum.netlify.app/)
+[demo](https://threejs-meydajs-fftspectrum.surge.sh)
 
 longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features used to drive  _threejs_ webgl stuff.
 
