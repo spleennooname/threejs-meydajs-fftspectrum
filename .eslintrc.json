@@ -1,16 +1,29 @@
 {
     "env": {
         "browser": true,
-        "es2021": true
+        "es2021": false
     },
-    "extends": "eslint:recommended",
+    "extends": [
+        "eslint:recommended",
+        "plugin:react/recommended"
+    ],
     "parserOptions": {
-        "ecmaVersion": 13,
+       "ecmaVersion": 2021,
+        "ecmaFeatures": {
+            "jsx": true
+        },
         "sourceType": "module"
     },
     "rules": {
-        "quotes": [1, "double"],
-        "no-unused-vars":[1],
-        "no-loss-of-precision":[1]
+        "quotes": [
+            1,
+            "double"
+        ],
+        "no-unused-vars": [
+            1
+        ],
+        "no-loss-of-precision": [
+            1
+        ]
     }
 }

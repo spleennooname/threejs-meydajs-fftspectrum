@@ -64,13 +64,12 @@ body {
   height: 100vh;
   cursor: pointer;
   background-color: rgba(0, 0, 0, 0.5);
-}
-
-.cover pre {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  pre {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .credits {
@@ -105,19 +104,18 @@ body {
 
 .play {
   display: block;
+  .t {
+    font-size: 40px;
+    line-height: 30px;
+    position: relative;
+    top: 30px;
+    left: 10px;
+   .fa {
+      font-size: 20px;
+    }
+  }
 }
 
-.play .t {
-  font-size: 40px;
-  line-height: 30px;
-  position: relative;
-  top: 30px;
-  left: 10px;
-}
-
-.play .t .fa {
-  font-size: 20px;
-}
 
 #stats {
   position: fixed;

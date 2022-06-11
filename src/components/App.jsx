@@ -1,15 +1,11 @@
 
-import gsap from "gsap"
-
 import Stats from "stats.js"
-
-import { Pane } from "tweakpane";
 
 import {
   tap,
   concat,
   from,
-  finalize,
+  delay,
   combineLatest,
 } from "rxjs";
 
@@ -39,35 +35,17 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
-//import DoubleBuffer from './DoubleBuffer'
-
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { getFFTs, getPalette, invlerp } from "./utils"
+import { getFFTs, getPalette, invlerp } from "../utils"
 
-import { fs, vs } from "./shaders/materials/line"
+import { fs, vs } from "../shaders/materials/line"
 
-import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
+import { AudioFeaturesExtractor } from "../AudioFeaturesExtractor"
 
-import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
-import { dpr, needsResize } from "./lib/three";
+import { pauseKey$, buttonStart$, renderWithPause$ } from "../lib/rx";
+import { dpr, needsResize } from "../lib/three";
 
-const audioFeaturesExtractor = new AudioFeaturesExtractor();
-
-const fftSize = 512;
-
-const numLines = 50;
-
-const btn = document.querySelector("#cover")
-const canvas = document.querySelector("#canvas")
-
-const stats = new Stats();
-document.querySelector("#stats").appendChild(stats.dom);
-
-let ffts, signalPalette
-
-let renderer, camera, composer, bloomPass, controls, fbo
-let iSignalMesh, fftMeshes, iDummy, iColor
 
 const params = {
   amount: 10,
@@ -75,59 +53,33 @@ const params = {
 }
 
 const audio = {
-  loudness:0,
-  perceptualSharpness:0,
-  perceptualSpread:0,
-  spectralFlatness:0
+  loudness: 0,
+  perceptualSharpness: 0,
+  perceptualSpread: 0,
+  spectralFlatness: 0
 };
 
-const gui = new Pane({
-  title: "controls",
-  expanded: true,
-});
+import { Controls } from "./Controls";
+import { Cover } from "./Cover"
 
-gui.addInput(params, "amount", { min: 1, max: 50 })
-gui.addInput(params, "xscale", { min: 20, max: 100 })
+import React from 'react';
+import { useEffect, useState } from "react"
+//import { useObservableState, useSubscription } from "observable-hooks";
 
-gui.addMonitor(audio, "loudness", {
-  view: "graph",
-  min: 0,
-  max: 1,
-});
-// 0 = not rich, 1 = very rich
-gui.addMonitor(audio, "perceptualSpread", {
-  view: "graph",
-  min: 0,
-  max: 1,
-});
-// 0 = not sharp, 1 very sharp
-gui.addMonitor(audio, "perceptualSharpness", {
-  view: "graph",
-  min: 0,
-  max: 1,
-});
-// 1= flat 0 = noisy
-gui.addMonitor(audio, "spectralFlatness", {
-  view: "graph",
-  min: 0,
-  max: 1,
-}); 
-// 1 = noisy, 0 = flat
-/* gui.addMonitor(audio, "spectralKurtosis", {
-  view: "graph",
-  min: 0,
-  max: 1,
-});
- */
-/* gui.on("change", () => {
+export default function App() {
 
+  const fftSize = 512;
+  const numLines = 50;
+  const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
-})
- */
+  const stats = new Stats();
+  document.querySelector("#stats").appendChild(stats.dom)
 
-export default class App {
+  let ffts, signalPalette
+  let renderer, camera, composer, bloomPass, controls
+  let iSignalMesh, fftMeshes, iDummy, iColor
 
-  init() {
+  const init = () => {
 
     // for instancedmesh computation
     iDummy = new Object3D();
@@ -139,9 +91,11 @@ export default class App {
     camera.position.set(0, -5, 10);
     camera.lookAt(0, 0, 0);
 
+    const canvas = document.querySelector("#canvas")
+
     renderer = new WebGLRenderer({
       canvas,
-      antialias: false,
+      antialias: true,
       powerPreference: "high-performance"
     });
     renderer.setPixelRatio(dpr);
@@ -173,11 +127,10 @@ export default class App {
 
     //fbo = new DoubleBuffer({ width: w, height: h});
 
-
     bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
     bloomPass.threshold = 0.0
     bloomPass.strength = 1.75;
-    bloomPass.radius = 1.5; 
+    bloomPass.radius = 1.5;
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
@@ -230,6 +183,7 @@ export default class App {
       if (ffts[i]) {
         //
         const fftGeom = new BufferGeometry();
+        // eslint-disable-next-line no-undef
         fftGeom.setAttribute("position", new BufferAttribute(new Float32Array(ffts[i].length * 3), 3));
         fftGeom.setDrawRange(0, ffts[i].length);
         //
@@ -257,32 +211,14 @@ export default class App {
     console.log("init")
   }
 
-  intro() {
-    gsap
-      .timeline()
-      .to("#cover", {
-        duration: 1.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      })
-      .to("#cover", {
-        duration: 1.0,
-        delay: 1.,
-        autoAlpha: 0,
-        ease: "power2.out"
-      });
-
-    console.log("intro")
-  }
-
-  render([{ timestamp }]) {
+  const update = ([{ timestamp }]) => {
 
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
-      const canvas = renderer.domElement;
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      const { clientWidth, clientHeight} = renderer.domElement;
+      camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
-      console.log('resize')
+      console.log("resize")
     }
 
     if (!audioFeaturesExtractor) return
@@ -313,7 +249,7 @@ export default class App {
     // affect blooming with perceptualSharpnes / loudness 
     //bloomPass.strength = lerp(1, 1.25, loudness)
     //bloomPass.radius = lerp(1, 3, perceptualSharpness)
-    
+
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
 
@@ -324,11 +260,12 @@ export default class App {
         const index = j * 3;
         // x -> frequency bins
         // https://www.desmos.com/calculator/ss4rcedsl4
-        position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);  
+        position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);
         // y -> magnitude 
         position.array[index + 1] = -15 + perceptualSharpness + ffts[i][j] * (params.amount * loudness);
         position.array[index + 2] = +15 - i * (5 * perceptualSpread)
       }
+
       position.needsUpdate = true;
     }
 
@@ -367,30 +304,44 @@ export default class App {
     stats.update()
   }
 
-  run$() {
-    gsap
-      .timeline()
-      .to("#cover", {
-        duration: 2,
-        autoAlpha: 1,
-        ease: "expo.inOut"
-      })
-    return concat(
-      // 1. get start + from
-      combineLatest([
-        buttonStart$(btn),
-        from(audioFeaturesExtractor.meydaPromise({ fftSize }))
-      ])
-        .pipe(
-          tap(() => this.init()),
-          finalize(() => this.intro())
-        ),
-      // render
-      renderWithPause$( pauseKey$(32) )
-        .pipe(
-          tap(this.render)
-        )
-    )
-      .subscribe()
+  const run$ = () => concat(
+  
+    combineLatest([
+      buttonStart$(document.querySelector("#cover")),
+      from(audioFeaturesExtractor.meydaPromise({ fftSize })).pipe( delay(300))
+    ])
+      .pipe(
+        tap(init)
+      ),
+    // render
+    renderWithPause$(pauseKey$(32))
+      .pipe(
+        tap(update)
+      )
+  )
+
+  const start = ( domCover ) =>{
+    console.log('App: start', domCover)
   }
+
+  useEffect(
+    () => {
+
+     const sub = run$().subscribe()
+
+      return function cleanup() {
+        console.log("cancella")
+        return sub.unsubscribe
+      }
+    },
+    [] // eseguito once
+  )
+
+  return (
+    <div className="wrapper container">
+      <canvas id="canvas"></canvas>
+      <Cover click={start}/>
+      <Controls audio={audio} params={params}/>
+    </div>
+  );
 }
