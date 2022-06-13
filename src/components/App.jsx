@@ -1,6 +1,4 @@
 
-import Stats from "stats.js"
-
 import {
   tap,
   concat,
@@ -46,7 +44,6 @@ import { AudioFeaturesExtractor } from "../AudioFeaturesExtractor"
 import { pauseKey$, buttonStart$, renderWithPause$ } from "../lib/rx";
 import { dpr, needsResize } from "../lib/three";
 
-
 const params = {
   amount: 10,
   xscale: 50
@@ -62,24 +59,36 @@ const audio = {
 import { Controls } from "./Controls";
 import { Cover } from "./Cover"
 
-import React from 'react';
-import { useEffect, useState } from "react"
-//import { useObservableState, useSubscription } from "observable-hooks";
+import * as React from "react";
+import { useEffect, useCallback } from "react"
+import { useImmer } from "use-immer";
+import { FpsView } from 'react-fps';
 
 export default function App() {
 
   const fftSize = 512;
   const numLines = 50;
+
+ // const {fps, avgFps, maxFps, currentFps} = useFps(16)
+
+  const [state, setState] = useImmer({ fftSize, numLines, info: { type: 4 } });
+
   const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
-  const stats = new Stats();
-  document.querySelector("#stats").appendChild(stats.dom)
+  const click = () => {
+
+  }
+
+  const handleClick2 = useCallback(() => {
+    console.log("Clicked!");
+  }, []);
+
 
   let ffts, signalPalette
   let renderer, camera, composer, bloomPass, controls
   let iSignalMesh, fftMeshes, iDummy, iColor
 
-  const init = () => {
+  const init = useCallback(() => {
 
     // for instancedmesh computation
     iDummy = new Object3D();
@@ -209,13 +218,13 @@ export default function App() {
     scene.add(fftMeshes)
 
     console.log("init")
-  }
+  }, [state])
 
-  const update = ([{ timestamp }]) => {
+  const update = useCallback( ([{ elapsed, timestamp }]) => {
 
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
-      const { clientWidth, clientHeight} = renderer.domElement;
+      const { clientWidth, clientHeight } = renderer.domElement;
       camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
       console.log("resize")
@@ -301,33 +310,55 @@ export default function App() {
 
     composer.render();
 
-    stats.update()
+
+  }, [state])
+
+  const start = (domCover) => {
+    console.log("App: start", domCover)
   }
 
-  const run$ = () => concat(
-  
-    combineLatest([
-      buttonStart$(document.querySelector("#cover")),
-      from(audioFeaturesExtractor.meydaPromise({ fftSize })).pipe( delay(300))
-    ])
-      .pipe(
-        tap(init)
-      ),
-    // render
-    renderWithPause$(pauseKey$(32))
-      .pipe(
-        tap(update)
-      )
-  )
+  const handleClick = (fftSize) => {
 
-  const start = ( domCover ) =>{
-    console.log('App: start', domCover)
+  /*   setState(
+      produce(state => {
+        state.info.type = 1
+      })
+    ) */
+
+    setState(state => {
+      state.fftSize =fftSize
+    })
+
+    /*  setState( {
+       ...state,
+      fftSize: 122,
+      info: {
+       type: 1
+      }
+     }) */
   }
 
   useEffect(
     () => {
 
-     const sub = run$().subscribe()
+      console.log("effect")
+
+      const cover = document.querySelector("#cover")
+      const sub = concat(
+
+        combineLatest([
+          buttonStart$(cover),
+          from(audioFeaturesExtractor.meydaPromise({ fftSize })).pipe(delay(300))
+        ])
+          .pipe(
+            tap(init)
+          ),
+        // render
+        renderWithPause$(pauseKey$(32))
+          .pipe(
+            tap(update)
+          )
+      ).subscribe()
 
       return function cleanup() {
         console.log("cancella")
@@ -340,8 +371,15 @@ export default function App() {
   return (
     <div className="wrapper container">
       <canvas id="canvas"></canvas>
-      <Cover click={start}/>
-      <Controls audio={audio} params={params}/>
+      <Cover click={start} />
+      <button onClick={ () => handleClick(122) }> {state.fftSize}</button>
+
+      <Controls audio={audio} params={params} />
+
+      {/* <div className="fps">average fps: { avgFps}</div> */}
+      <div className="fps">
+         <FpsView width={60} height={45} />
+      </div> 
     </div>
   );
 }

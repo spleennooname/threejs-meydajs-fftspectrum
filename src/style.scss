@@ -125,3 +125,14 @@ body {
     position: relative!important;
   }
 }
+
+
+.fps{
+  position: fixed;
+  bottom: 0px;
+  left: 0px;
+
+  & > div{
+    position: unset!important;
+  }
+}

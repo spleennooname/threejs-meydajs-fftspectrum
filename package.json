@@ -44,9 +44,9 @@
     "@types/react": "^18.0.12",
     "@types/react-dom": "^18.0.5",
     "colormap": "^2.3.2",
-    "dat.gui": "^0.7.9",
     "detect-gpu": "^4.0.25",
     "gsap": "^3.10.4",
+    "immer": "^9.0.14",
     "javascript-obfuscator": "^4.0.0",
     "meyda": "^5.5.0",
     "observable-hooks": "^4.2.0",
@@ -54,12 +54,13 @@
     "raf-polyfill": "^1.0.0",
     "react": "^18.1.0",
     "react-dom": "^18.1.0",
-    "react-scripts": "^5.0.1",
+    "react-fps": "^1.0.6",
     "rxjs": "^7.5.5",
     "stats.js": "^0.17.0",
     "three": "^0.141.0",
     "three-instanced-uniforms-mesh": "^0.46.0",
     "three-multipass-post-processing": "github:martinlaxenaire/three-multipass-post-processing",
-    "tweakpane": "^3.0.8"
+    "tweakpane": "^3.0.8",
+    "use-immer": "^0.7.0"
   }
 }
