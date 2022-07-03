@@ -57,6 +57,8 @@
     "react-fps": "^1.0.6",
     "rxjs": "^7.5.5",
     "stats.js": "^0.17.0",
+    "styled-component": "^2.8.0",
+    "styled-components": "^5.3.5",
     "three": "^0.142.0",
     "three-instanced-uniforms-mesh": "^0.46.0",
     "three-multipass-post-processing": "github:martinlaxenaire/three-multipass-post-processing",
