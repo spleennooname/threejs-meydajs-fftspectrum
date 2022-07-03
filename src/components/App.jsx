@@ -1,6 +1,4 @@
 
-import styled from "styled-components";
-
 import {
   tap,
   concat,
@@ -46,6 +44,17 @@ import { AudioFeaturesExtractor } from "../AudioFeaturesExtractor"
 import { pauseKey$, buttonStart$, renderWithPause$ } from "../lib/rx";
 import { dpr, needsResize } from "../lib/three";
 
+import { StyledFps, StyledWrapper} from './styled'
+import { Controls } from "./Controls"
+import { Cover } from "./Cover"
+
+import * as React from "react";
+import PropTypes from "prop-types";
+import { useEffect, useCallback } from "react"
+//import { useImmer } from "use-immer";
+
+import { FpsView } from 'react-fps';
+
 const params = {
   amount: 10,
   xscale: 50
@@ -58,32 +67,11 @@ const audio = {
   spectralFlatness: 0
 };
 
-import { Controls } from "./Controls"
-
-import { Cover } from "./Cover"
-
-import * as React from "react";
-import PropTypes from "prop-types";
-import { useEffect, useCallback } from "react"
-import { useImmer } from "use-immer";
-
-const StyledFps = styled.div`
-  position: fixed;
-  bottom: 0px;
-  left: 0px;
-
-  & > div{
-    position: unset!important;
-  }
-`
-import { FpsView } from 'react-fps';
-
 export default function App({ fftSize, numLines}) {
-
 
  // const {fps, avgFps, maxFps, currentFps} = useFps(16)
 
-  const [state, setState] = useImmer({ fftSize, numLines, info: { type: 4 } });
+ // const [state, setState] = useImmer({ fftSize, numLines, info: { type: 4 } });
 
   const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -100,7 +88,7 @@ export default function App({ fftSize, numLines}) {
   let renderer, camera, composer, bloomPass, controls
   let iSignalMesh, fftMeshes, iDummy, iColor
 
-  const init = useCallback(() => {
+  const init = () => {
 
     // for instancedmesh computation
     iDummy = new Object3D();
@@ -230,10 +218,12 @@ export default function App({ fftSize, numLines}) {
     scene.add(fftMeshes)
 
     console.log("init")
-  }, [state])
+  }
 
-  const update = useCallback( ([{ elapsed, timestamp }]) => {
-
+  // https://stackoverflow.com/questions/58130067/usecallback-vs-simple-function
+  // https://medium.com/@jan.hesters/usecallback-vs-usememo-c23ad1dc60
+  // https://blog.shahednasser.com/react-usememo-vs-usecallback-when-to-use/#:~:text=useMemo%20is%20very%20similar%20to,one%20of%20the%20dependencies%20changes.
+  const update = ([{ timestamp }]) => {
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
       const { clientWidth, clientHeight } = renderer.domElement;
@@ -318,12 +308,10 @@ export default function App({ fftSize, numLines}) {
       iSignalMesh.instanceColor.needsUpdate = true
     }
 
-    controls.update()
+    controls.update();
 
     composer.render();
-
-
-  }, [state])
+  }
 
   const start = (domCover) => {
     console.log("App: start", domCover)
@@ -353,11 +341,9 @@ export default function App({ fftSize, numLines}) {
   useEffect(
     () => {
 
-      console.log("effect")
-
       const cover = document.querySelector("#cover")
 
-      const sub = concat(
+      const subscription = concat(
 
         combineLatest([
           buttonStart$(cover),
@@ -373,16 +359,18 @@ export default function App({ fftSize, numLines}) {
           )
       ).subscribe()
 
+      console.log(subscription)
+
       return function cleanup() {
         console.log("cancella")
-        return sub.unsubscribe
+        return  subscription.unsubscribe
       }
     },
     [] // eseguito once
   )
 
   return (
-    <div className="wrapper container">
+    <StyledWrapper>
       <canvas id="canvas"></canvas>
      
       <Cover click={start} />
@@ -393,7 +381,7 @@ export default function App({ fftSize, numLines}) {
       <StyledFps>
          <FpsView width={60} height={45} />
       </StyledFps> 
-    </div>
+    </StyledWrapper>
   );
 }
 

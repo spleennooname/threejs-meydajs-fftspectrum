@@ -1,59 +1,14 @@
 
-
-import styled from "styled-components";
-
-const StyledCover = styled.div`
-  position: absolute;
-  display: flex;
-  left: 0;
-  top: 0;
-  justify-content: center;
-  align-items: center;
-  z-index: 2;
-  opacity: 0;
-  width: 100vw;
-  height: 100vh;
-  cursor: pointer;
-  background-color: rgba(0, 0, 0, 0.5);
-  
-  pre {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-  }
-
-  .play {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 10px;
-    line-height: 20px;
-    color: #fefefe;
-    letter-spacing: 2px;
-    display: block;
-
-    .t {
-      font-size: 40px;
-      line-height: 30px;
-      position: relative;
-      top: 30px;
-      left: 10px;
-     .fa {
-        font-size: 20px;
-      }
-    }
-  }
-`
+import { StyledCover} from './styled'
 
 //import { buttonStart$ } from "../lib/rx";
 /* import { useObservableState } from 'observable-hooks'
+//import { of, BehaviorSubject, Subject, switchMap, mapTo, startWith, timer } from "rxjs"
  */
 
 import gsap from "gsap"
 
 import PropTypes from "prop-types";
-//import { of, BehaviorSubject, Subject, switchMap, mapTo, startWith, timer } from "rxjs"
 import * as React from "react"
 import { useRef, useEffect } from "react";
 
@@ -102,7 +57,8 @@ export const Cover = ({ click }) => {
 
   return (
     <>
-      <StyledCover ref={coverRef}
+      <StyledCover 
+        ref={coverRef}
         onClick={clickRef}
         id="cover">
         <div className="play f">

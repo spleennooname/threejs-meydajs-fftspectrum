@@ -1,7 +1,8 @@
 import { Pane } from "tweakpane";
+
+import PropTypes from "prop-types";
 import React from "react";
 
-// eslint-disable-next-line react/prop-types
 export const Controls = ({params, audio}) => {
 
   const gui = new Pane({
@@ -47,3 +48,5 @@ export const Controls = ({params, audio}) => {
     <></>
   )
 }
+
+Controls.propTypes ={ params: PropTypes.object, audio: PropTypes.object }
