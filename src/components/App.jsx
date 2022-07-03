@@ -1,4 +1,6 @@
 
+import styled from "styled-components";
+
 import {
   tap,
   concat,
@@ -56,18 +58,28 @@ const audio = {
   spectralFlatness: 0
 };
 
-import { Controls } from "./Controls";
+import { Controls } from "./Controls"
+
 import { Cover } from "./Cover"
 
 import * as React from "react";
+import PropTypes from "prop-types";
 import { useEffect, useCallback } from "react"
 import { useImmer } from "use-immer";
+
+const StyledFps = styled.div`
+  position: fixed;
+  bottom: 0px;
+  left: 0px;
+
+  & > div{
+    position: unset!important;
+  }
+`
 import { FpsView } from 'react-fps';
 
-export default function App() {
+export default function App({ fftSize, numLines}) {
 
-  const fftSize = 512;
-  const numLines = 50;
 
  // const {fps, avgFps, maxFps, currentFps} = useFps(16)
 
@@ -75,10 +87,10 @@ export default function App() {
 
   const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
-  const click = () => {
+/*   const click = () => {
 
   }
-
+ */
   const handleClick2 = useCallback(() => {
     console.log("Clicked!");
   }, []);
@@ -344,6 +356,7 @@ export default function App() {
       console.log("effect")
 
       const cover = document.querySelector("#cover")
+
       const sub = concat(
 
         combineLatest([
@@ -371,15 +384,17 @@ export default function App() {
   return (
     <div className="wrapper container">
       <canvas id="canvas"></canvas>
+     
       <Cover click={start} />
-      <button onClick={ () => handleClick(122) }> {state.fftSize}</button>
-
+     
+     {/*  <button onClick={ () => handleClick(122) }> {state.fftSize}</button> */}
       <Controls audio={audio} params={params} />
 
-      {/* <div className="fps">average fps: { avgFps}</div> */}
-      <div className="fps">
+      <StyledFps>
          <FpsView width={60} height={45} />
-      </div> 
+      </StyledFps> 
     </div>
   );
 }
+
+App.propTypes ={ fftSize: PropTypes.number, numLines: PropTypes.number }

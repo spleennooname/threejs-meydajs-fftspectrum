@@ -7,6 +7,7 @@ import App from "./components/App.jsx";
 
 const rootDom = document.getElementById("app")
 const root = ReactDOM.createRoot(rootDom);
+
 root.render(
- <App />
+  <App fftSize={512} numLines={50} />
 );
