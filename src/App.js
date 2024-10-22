@@ -10,6 +10,7 @@ import {
   concat,
   from,
   finalize,
+  catchError,
   combineLatest,
 } from "rxjs";
 
@@ -24,7 +25,7 @@ import {
   Mesh,
   Color,
   BufferGeometry,
-  BoxBufferGeometry,
+  BoxGeometry,
   BufferAttribute,
   InstancedMesh,
   Vector2,
@@ -38,9 +39,6 @@ import {
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-
-//import DoubleBuffer from './DoubleBuffer'
-
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { getFFTs, getPalette, invlerp } from "./utils"
@@ -75,10 +73,10 @@ const params = {
 }
 
 const audio = {
-  loudness:0,
-  perceptualSharpness:0,
-  perceptualSpread:0,
-  spectralFlatness:0
+  loudness: 0,
+  perceptualSharpness: 0,
+  perceptualSpread: 0,
+  spectralFlatness: 0
 };
 
 const gui = new Pane({
@@ -111,7 +109,7 @@ gui.addMonitor(audio, "spectralFlatness", {
   view: "graph",
   min: 0,
   max: 1,
-}); 
+});
 // 1 = noisy, 0 = flat
 /* gui.addMonitor(audio, "spectralKurtosis", {
   view: "graph",
@@ -141,7 +139,7 @@ export default class App {
 
     renderer = new WebGLRenderer({
       canvas,
-      antialias: false,
+      antialias: true,
       powerPreference: "high-performance"
     });
     renderer.setPixelRatio(dpr);
@@ -152,10 +150,8 @@ export default class App {
     controls.maxDistance = 25;
     controls.minDistance = 7;
     controls.dampingFactor = 5e-2
-    // x
     controls.minAzimuthAngle = - Math.PI / 1
     controls.maxAzimuthAngle = Math.PI / 1
-    // y
     controls.minPolarAngle = 1
     controls.maxPolarAngle = Math.PI / 2
     controls.update();
@@ -172,12 +168,10 @@ export default class App {
     let resolution = new Vector2(w, h)
 
     //fbo = new DoubleBuffer({ width: w, height: h});
-
-
     bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
     bloomPass.threshold = 0.0
     bloomPass.strength = 1.75;
-    bloomPass.radius = 1.5; 
+    bloomPass.radius = 1.5;
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
@@ -200,12 +194,12 @@ export default class App {
 
     ffts = getFFTs(numLines, fftSize);
 
-    const fftMat = new MeshLambertMaterial({ color: 0xffffff })
-
     // 1. INSTANCED MESH for signal
-    const baseGeom = new BoxBufferGeometry(0.25)
-
-    iSignalMesh = new InstancedMesh(baseGeom, fftMat, fftSize);
+    iSignalMesh = new InstancedMesh(
+      new BoxGeometry(1.0),
+      new MeshLambertMaterial({ color: 0xffffff }),
+      fftSize
+    );
     iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
     iSignalMesh.position.set(-8, 0, 0)
     iSignalMesh.scale.set(1, 1, 1)
@@ -228,7 +222,7 @@ export default class App {
     fftMeshes = new Group();
     for (let i = 0; i < ffts.length; i++) {
       if (ffts[i]) {
-        //
+      
         const fftGeom = new BufferGeometry();
         fftGeom.setAttribute("position", new BufferAttribute(new Float32Array(ffts[i].length * 3), 3));
         fftGeom.setDrawRange(0, ffts[i].length);
@@ -282,7 +276,6 @@ export default class App {
       const canvas = renderer.domElement;
       camera.aspect = canvas.clientWidth / canvas.clientHeight;
       camera.updateProjectionMatrix();
-      console.log('resize')
     }
 
     if (!audioFeaturesExtractor) return
@@ -301,39 +294,36 @@ export default class App {
     ffts.pop();
     ffts.unshift(features.amplitudeSpectrum);
 
-    const loudness = invlerp(3, 50, features.loudness.total)
+    const { perceptualSpread, perceptualSharpness, spectralFlatness } = features
 
-    const { perceptualSpread, perceptualSharpness } = features
-
-    audio.loudness = loudness;
-    audio.perceptualSharpness = features.perceptualSharpness
-    audio.perceptualSpread = features.perceptualSpread
-    audio.spectralFlatness = features.spectralFlatness
+    audio.loudness = invlerp(3, 50, features.loudness.total)
+    audio.perceptualSharpness = perceptualSharpness
+    audio.perceptualSpread = perceptualSpread
+    audio.spectralFlatness = spectralFlatness
 
     // affect blooming with perceptualSharpnes / loudness 
     //bloomPass.strength = lerp(1, 1.25, loudness)
     //bloomPass.radius = lerp(1, 3, perceptualSharpness)
-    
+
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
-
-      const geom = fftMeshes.children[i].geometry
-      const position = geom.getAttribute("position")
+      const position =  fftMeshes.children[i].geometry.getAttribute("position")
 
       for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
         // x -> frequency bins
         // https://www.desmos.com/calculator/ss4rcedsl4
-        position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);  
+        position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);
         // y -> magnitude 
-        position.array[index + 1] = -15 + perceptualSharpness + ffts[i][j] * (params.amount * loudness);
-        position.array[index + 2] = +15 - i * (5 * perceptualSpread)
+        position.array[index + 1] = -15 + audio.perceptualSharpness + ffts[i][j] * (params.amount * audio.loudness);
+        position.array[index + 2] = +15 - i * (5 * audio.perceptualSpread)
       }
       position.needsUpdate = true;
     }
 
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
+
     if (!!signal && iSignalMesh) {
       for (let i = 0; i < fftSize; i++) {
         iDummy.position.set(
@@ -341,18 +331,21 @@ export default class App {
           signal[i] * 30,
           0
         );
+
         iDummy.rotation.set(
           (timestamp + audio.loudness) * 1e-3,
           0,
-          loudness
+          audio.loudness
         )
+
         iDummy.scale.set(
-          loudness * 0.2,
-          perceptualSharpness * 0.2,
-          perceptualSharpness * 0.2
+          audio.loudness * 0.5,
+          audio.perceptualSharpness * 0.5,
+          audio.perceptualSharpness * 0.5
         )
         iDummy.updateMatrix();
         iColor.set(signalPalette[i])
+
         iSignalMesh.setColorAt(i, iColor)
         iSignalMesh.setMatrixAt(i, iDummy.matrix);
       }
@@ -361,36 +354,39 @@ export default class App {
     }
 
     controls.update()
-
     composer.render();
 
     stats.update()
   }
 
   run$() {
-    gsap
-      .timeline()
-      .to("#cover", {
-        duration: 2,
-        autoAlpha: 1,
-        ease: "expo.inOut"
-      })
+    // Start GSAP animation for cover element
+    gsap.timeline().to("#cover", {
+      duration: 2,
+      autoAlpha: 1,
+      ease: "expo.inOut"
+    });
+
+    // Combine observables
     return concat(
-      // 1. get start + from
       combineLatest([
         buttonStart$(btn),
         from(audioFeaturesExtractor.meydaPromise({ fftSize }))
       ])
         .pipe(
           tap(() => this.init()),
-          finalize(() => this.intro())
+          finalize(() => this.intro()),
+          catchError((error) => {
+            console.error('Error during initialization:', error);
+            //return EMPTY; // or handle the error as needed
+          })
         ),
-      // render
-      renderWithPause$( pauseKey$(32) )
+      // Render with pause functionality
+      renderWithPause$(pauseKey$(32))
         .pipe(
           tap(this.render)
         )
     )
-      .subscribe()
+      .subscribe();
   }
 }
