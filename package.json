@@ -1,5 +1,5 @@
 {
-  "name": "threejs-meydajs-fftspectrum",
+  "name": "fft-spectrum",
   "version": "1.0.0",
   "license": "MIT",
   "author": "Andrea Bovo <https://github.com/spleennooname>",
@@ -33,15 +33,16 @@
     "detect-gpu": "^4.0.24",
     "gsap": "^3.10.4",
     "javascript-obfuscator": "^4.0.0",
-    "meshline": "^2.0.4",
-    "meyda": "^5.4.0",
-    "postprocessing": "^6.27.0",
+    "meyda": "^5.6.3",
     "raf-polyfill": "^1.0.0",
     "rxjs": "^7.5.5",
     "stats.js": "^0.17.0",
-    "three": "^0.141.0",
+    "three": "^0.150.0",
     "three-instanced-uniforms-mesh": "^0.46.0",
-    "three-multipass-post-processing": "github:martinlaxenaire/three-multipass-post-processing",
     "tweakpane": "^3.0.8"
+  },
+  "volta": {
+    "node": "21.7.3",
+    "npm": "8.19.4"
   }
 }
