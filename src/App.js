@@ -12,6 +12,12 @@ import {
   finalize,
   catchError,
   combineLatest,
+  switchMap,
+  retry,
+  timer,
+  EMPTY,
+  shareReplay,
+  throttleTime,
 } from "rxjs";
 
 import {
@@ -41,7 +47,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { getFFTs, getPalette, invlerp } from "./utils"
+import { getFFTs, getPalette, invlerp, lerp } from "./utils"
 
 import { fs, vs } from "./shaders/materials/line"
 
@@ -52,7 +58,7 @@ import { dpr, needsResize } from "./lib/three";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
-const fftSize = 512;
+const fftSize = 1024;
 
 const numLines = 50;
 
@@ -201,7 +207,7 @@ export default class App {
       fftSize
     );
     iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    iSignalMesh.position.set(-8, 0, 0)
+    iSignalMesh.position.set(-10, 0, 0)
     iSignalMesh.scale.set(1, 1, 1)
 
     // get meshes color
@@ -302,8 +308,8 @@ export default class App {
     audio.spectralFlatness = spectralFlatness
 
     // affect blooming with perceptualSharpnes / loudness 
-    //bloomPass.strength = lerp(1, 1.25, loudness)
-    //bloomPass.radius = lerp(1, 3, perceptualSharpness)
+    bloomPass.strength = lerp(1, 1.25, audio.loudness)
+    bloomPass.radius = lerp(1, 3, perceptualSharpness) 
 
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
@@ -321,13 +327,13 @@ export default class App {
       position.needsUpdate = true;
     }
 
-    // domain-time  via instancedgeometry
+    // domain-time, instancedmesh
     const signal = audioFeaturesExtractor.signal();
-
     if (!!signal && iSignalMesh) {
+      
       for (let i = 0; i < fftSize; i++) {
         iDummy.position.set(
-          (15 * i) / fftSize,
+          (30 * i) / fftSize,
           signal[i] * 30,
           0
         );
@@ -360,33 +366,54 @@ export default class App {
   }
 
   run$() {
-    // Start GSAP animation for cover element
+    // Mostra l'interfaccia iniziale con animazione GSAP
     gsap.timeline().to("#cover", {
       duration: 2,
       autoAlpha: 1,
       ease: "expo.inOut"
     });
 
-    // Combine observables
-    return concat(
-      combineLatest([
-        buttonStart$(btn),
-        from(audioFeaturesExtractor.meydaPromise({ fftSize }))
-      ])
-        .pipe(
-          tap(() => this.init()),
-          finalize(() => this.intro()),
-          catchError((error) => {
-            console.error('Error during initialization:', error);
-            //return EMPTY; // or handle the error as needed
-          })
-        ),
-      // Render with pause functionality
-      renderWithPause$(pauseKey$(32))
-        .pipe(
-          tap(this.render)
-        )
-    )
-      .subscribe();
+    // Stream di inizializzazione: combina click del bottone e setup audio
+    const init$ = combineLatest([
+      buttonStart$(btn),                                    // Attende il click dell'utente
+      from(audioFeaturesExtractor.meydaPromise({ fftSize })) // Richiede permessi microfono e inizializza Meyda
+    ]).pipe(
+      tap(() => this.init()),                              // Inizializza ThreeJS scene, camera, renderer
+      finalize(() => this.intro()),                        // Nasconde il cover overlay
+      retry({ count: 3, delay: 1000 }),                    // Retry automatico su errori (es. permessi negati)
+      catchError((error) => {
+        console.error('Error during initialization:', error);
+        // Mostra messaggio di errore user-friendly e permette retry
+        gsap.to("#cover", { 
+          duration: 0.5, 
+          autoAlpha: 1,
+          onComplete: () => {
+            btn.textContent = 'Error: Click to retry';
+            btn.style.backgroundColor = '#ff4444';
+          }
+        });
+        return EMPTY; // Termina lo stream su errore irrecuperabile
+      }),
+      shareReplay(1) // Cache il risultato per evitare re-inizializzazioni
+    );
+
+    // Stream di rendering: gestisce il loop di animazione
+    const render$ = renderWithPause$(pauseKey$(32)).pipe(   // Spacebar per pause/resume
+      throttleTime(16),                                     // Limita a ~60fps per performance
+      tap(this.render),                                     // Esegue il rendering della scena
+      catchError((error) => {
+        console.error('Render error:', error);
+        // Recovery automatico dal rendering con breve delay
+        return timer(100).pipe(
+          switchMap(() => renderWithPause$(pauseKey$(32)))
+        );
+      })
+    );
+
+    // Concatena gli stream: prima inizializzazione, poi rendering continuo
+    return concat(init$, render$).subscribe({
+      error: (error) => console.error('App error:', error),
+      complete: () => console.log('App completed')
+    });
   }
 }

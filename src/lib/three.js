@@ -1,6 +1,6 @@
 export * from "../shaders/materials/line"
 
-export const dpr = Math.min(1.0, window.devicePixelRatio || 1);
+export const dpr = Math.min(1.25, window.devicePixelRatio || 1);
 
 export function needsResize({renderer, composer}) {
   const canvas = renderer.domElement;
