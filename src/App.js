@@ -51,12 +51,11 @@ import { getFFTs, getPalette, invlerp, lerp } from "./utils"
 
 import { fs, vs } from "./shaders/materials/line"
 
-import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor"
+import { meydaPromise, features, signal } from "./AudioFeaturesExtractor"
 
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
 import { dpr, needsResize } from "./lib/three";
 
-const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
 const fftSize = 1024;
 
@@ -70,8 +69,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette
 
-let renderer, camera, composer, bloomPass, controls, fbo
-let iSignalMesh, fftMeshes, iDummy, iColor
+let renderer, camera, composer, bloomPass, controls, iSignalMesh, fftMeshes, iDummy, iColor
 
 const params = {
   amount: 10,
@@ -129,9 +127,7 @@ gui.addMonitor(audio, "spectralFlatness", {
 })
  */
 
-export default class App {
-
-  init() {
+function init() {
 
     // for instancedmesh computation
     iDummy = new Object3D();
@@ -257,7 +253,7 @@ export default class App {
     console.log("init")
   }
 
-  intro() {
+function intro() {
     gsap
       .timeline()
       .to("#cover", {
@@ -275,7 +271,7 @@ export default class App {
     console.log("intro")
   }
 
-  render([{ timestamp }]) {
+function render([{ timestamp }]) {
 
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
@@ -284,9 +280,7 @@ export default class App {
       camera.updateProjectionMatrix();
     }
 
-    if (!audioFeaturesExtractor) return
-
-    const features = audioFeaturesExtractor.features([
+    const audioFeatures = features([
       "perceptualSharpness",
       "perceptualSpread",
       "spectralFlatness",
@@ -294,15 +288,15 @@ export default class App {
       "loudness"
     ]);
 
-    if (!features) return
+    if (!audioFeatures) return
 
     // fill ffts spectrum buffers
     ffts.pop();
-    ffts.unshift(features.amplitudeSpectrum);
+    ffts.unshift(audioFeatures.amplitudeSpectrum);
 
-    const { perceptualSpread, perceptualSharpness, spectralFlatness } = features
+    const { perceptualSpread, perceptualSharpness, spectralFlatness } = audioFeatures
 
-    audio.loudness = invlerp(3, 50, features.loudness.total)
+    audio.loudness = invlerp(3, 50, audioFeatures.loudness.total)
     audio.perceptualSharpness = perceptualSharpness
     audio.perceptualSpread = perceptualSpread
     audio.spectralFlatness = spectralFlatness
@@ -328,13 +322,13 @@ export default class App {
     }
 
     // domain-time, instancedmesh
-    const signal = audioFeaturesExtractor.signal();
-    if (!!signal && iSignalMesh) {
+    const audioSignal = signal();
+    if (!!audioSignal && iSignalMesh) {
       
       for (let i = 0; i < fftSize; i++) {
         iDummy.position.set(
           (30 * i) / fftSize,
-          signal[i] * 30,
+          audioSignal[i] * 30,
           0
         );
 
@@ -365,7 +359,7 @@ export default class App {
     stats.update()
   }
 
-  run$() {
+function run() {
     // Mostra l'interfaccia iniziale con animazione GSAP
     gsap.timeline().to("#cover", {
       duration: 2,
@@ -376,20 +370,20 @@ export default class App {
     // Stream di inizializzazione: combina click del bottone e setup audio
     const init$ = combineLatest([
       buttonStart$(btn),                                    // Attende il click dell'utente
-      from(audioFeaturesExtractor.meydaPromise({ fftSize })) // Richiede permessi microfono e inizializza Meyda
+      from(meydaPromise({ fftSize })) // Richiede permessi microfono e inizializza Meyda
     ]).pipe(
-      tap(() => this.init()),                              // Inizializza ThreeJS scene, camera, renderer
-      finalize(() => this.intro()),                        // Nasconde il cover overlay
+      tap(() => init()),                              // Inizializza ThreeJS scene, camera, renderer
+      finalize(() => intro()),                        // Nasconde il cover overlay
       retry({ count: 3, delay: 1000 }),                    // Retry automatico su errori (es. permessi negati)
       catchError((error) => {
-        console.error('Error during initialization:', error);
+        console.error("Error during initialization:", error);
         // Mostra messaggio di errore user-friendly e permette retry
         gsap.to("#cover", { 
           duration: 0.5, 
           autoAlpha: 1,
           onComplete: () => {
-            btn.textContent = 'Error: Click to retry';
-            btn.style.backgroundColor = '#ff4444';
+            btn.textContent = "Error: Click to retry";
+            btn.style.backgroundColor = "#ff4444";
           }
         });
         return EMPTY; // Termina lo stream su errore irrecuperabile
@@ -400,9 +394,9 @@ export default class App {
     // Stream di rendering: gestisce il loop di animazione
     const render$ = renderWithPause$(pauseKey$(32)).pipe(   // Spacebar per pause/resume
       throttleTime(16),                                     // Limita a ~60fps per performance
-      tap(this.render),                                     // Esegue il rendering della scena
+      tap(render),                                     // Esegue il rendering della scena
       catchError((error) => {
-        console.error('Render error:', error);
+        console.error("Render error:", error);
         // Recovery automatico dal rendering con breve delay
         return timer(100).pipe(
           switchMap(() => renderWithPause$(pauseKey$(32)))
@@ -412,8 +406,9 @@ export default class App {
 
     // Concatena gli stream: prima inizializzazione, poi rendering continuo
     return concat(init$, render$).subscribe({
-      error: (error) => console.error('App error:', error),
-      complete: () => console.log('App completed')
+      error: (error) => console.error("App error:", error),
+      complete: () => console.log("App completed")
     });
   }
-}
+
+export { run };
