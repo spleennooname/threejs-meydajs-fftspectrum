@@ -7,16 +7,8 @@ import { Pane } from "tweakpane";
 
 import {
   tap,
-  concat,
   from,
-  finalize,
-  catchError,
-  combineLatest,
   switchMap,
-  retry,
-  timer,
-  EMPTY,
-  shareReplay,
   takeUntil,
   Subject,
 } from "rxjs";
@@ -456,61 +448,37 @@ function render([{ timestamp }]) {
 }
 
 function run() {
-  // Mostra l'interfaccia iniziale con animazione GSAP
-  gsap.timeline().to("#cover", {
-    duration: 2,
-    autoAlpha: 1,
-    ease: "expo.inOut",
-  });
-
-  // Stream di inizializzazione: combina click del bottone e setup audio
-  const init$ = combineLatest([
-    buttonStart$(btn), // Attende il click dell'utente
-    from(meydaPromise({ fftSize })), // Richiede permessi microfono e inizializza Meyda
-  ]).pipe(
-    takeUntil(destroy$), // Cleanup automatico
-    tap(() => init()), // Inizializza ThreeJS scene, camera, renderer
-    finalize(() => intro()), // Nasconde il cover overlay
-    //retry({ count: 3, delay: 1000 }), // Retry automatico su errori (es. permessi negati)
-    /*catchError(error => {
-      console.error("Error during initialization:", error);
-      // Mostra messaggio di errore user-friendly e permette retry
-      gsap.to("#cover", {
-        duration: 0.5,
-        autoAlpha: 1,
-        onComplete: () => {
-          btn.textContent = "Error: Click to retry";
-          btn.style.backgroundColor = "#ff4444";
-        },
-      });
-      return EMPTY; // Termina lo stream su errore irrecuperabile
-    }),
-    shareReplay(1) // Cache il risultato per evitare re-inizializzazioni*/
-  );
-
-  // Stream di rendering: gestisce il loop di animazione
-  const render$ = renderWithPause$(pauseKey$(32)).pipe(
-    takeUntil(destroy$), // Cleanup automatico
-    tap(render), // Esegue il rendering della scena
-   /*  catchError(() => {
-      // Recovery automatico dal rendering con breve delay
-      return timer(100).pipe(
-        takeUntil(destroy$),
-        switchMap(() => renderWithPause$(pauseKey$(32)))
-      );
-    }) */
-  );
-
-  // Concatena gli stream: prima inizializzazione, poi rendering continuo
-  const subscription = concat(init$, render$).subscribe({
-    error: error => console.error("App error:", error),
-    complete: () => {
-      console.log("App completed");
-      appCleanup();
+  // Setup cleanup handlers
+  window.addEventListener('beforeunload', appCleanup);
+  window.addEventListener('pagehide', appCleanup);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      import('./AudioFeaturesExtractor.js').then(({ suspend }) => suspend());
     }
   });
 
-  return subscription;
+  // Show initial UI
+  gsap.to("#cover", { duration: 1, autoAlpha: 1 });
+
+  // Simple flow: button click → audio setup → init → render loop
+  buttonStart$(btn)
+    .pipe(
+      switchMap(() => from(meydaPromise({ fftSize }))),
+      tap(() => {
+        init();
+        intro();
+      }),
+      switchMap(() => renderWithPause$(pauseKey$(32))),
+      takeUntil(destroy$)
+    )
+    .subscribe({
+      next: render,
+      error: (error) => {
+        console.error("App error:", error);
+        appCleanup();
+      },
+      complete: appCleanup
+    });
 }
 
 export { run };
