@@ -12,9 +12,9 @@ import {
 } from "rxjs";
 
 export function resizeObserver$(el) {
-  return new Observable(subscriber => {
+  return new Observable((subscriber) => {
     // https://web.dev/resize-observer/
-    let ro = new ResizeObserver(entries => {
+    let ro = new ResizeObserver((entries) => {
       subscriber.next(entries);
     });
     try {
@@ -31,14 +31,17 @@ export function resizeObserver$(el) {
 }
 
 export function resize$() {
-  return fromEvent(window, "resize").pipe(debounceTime(250), distinctUntilChanged());
+  return fromEvent(window, "resize").pipe(
+    debounceTime(250),
+    distinctUntilChanged()
+  );
 }
 
 export function pauseKey$(keyCode) {
   return fromEvent(document, "keydown").pipe(
-    filter(e => e.keyCode === keyCode),
+    filter((e) => e.keyCode === keyCode),
     startWith(false),
-    scan(prev => !prev)
+    scan((prev) => !prev)
   );
 }
 
@@ -50,7 +53,7 @@ export function renderWithPause$(pause$) {
   return animationFrames().pipe(
     //auditTime(1000 / fps),
     withLatestFrom(pause$),
-    filter(arr => !arr[1])
+    filter((arr) => !arr[1])
     //takeUntil(destroy$)
   );
 }

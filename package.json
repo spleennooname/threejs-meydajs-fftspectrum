@@ -1,10 +1,9 @@
 {
   "name": "fft-spectrum",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "license": "MIT",
   "author": "Andrea Bovo <https://github.com/spleennooname>",
   "description": "audio reactive experiment with ThreeJS and Meyda",
-  "type": "module",
   "scripts": {
     "ngrok": "ngrok http -bind-tls=true --host-header=rewrite https://localhost:3000/",
     "build": "vite build",
@@ -13,20 +12,18 @@
     "lint": "npx eslint --color src/index.js",
     "lint:fix": "npx eslint --fix --color src/index.js",
     "lint:watch": "npx esw -w --fix --color src/index.js",
-    "format": "prettier --write \"src/**/*.{js,css,scss,html}\"",
-    "format:check": "prettier --check \"src/**/*.{js,css,scss,html}\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "dev": "concurrently \"npm:lint:watch\" \"npm:vite\""
   },
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "^1.0.3",
     "concurrently": "^7.2.1",
-    "cross-env": "^7.0.3",
     "eslint": "^8.16.0",
     "eslint-watch": "^8.0.0",
     "prettier": "^3.6.2",
     "sass": "^1.52.1",
-    "vite": "^2.9.9",
-    "vite-plugin-eslint": "^1.6.1"
+    "vite": "^2.9.9"
   },
   "browserslist": [
     "> 0.25%, not ie 11, not op_mini all"
@@ -35,9 +32,9 @@
     "colormap": "^2.3.2",
     "gsap": "^3.10.4",
     "meyda": "^5.6.3",
-    "rxjs": "^7.8.2",
+    "rxjs": "^7.5.5",
     "stats.js": "^0.17.0",
-    "three": "^0.180.0",
+    "three": "^0.150.1",
     "tweakpane": "^3.0.8"
   },
   "volta": {

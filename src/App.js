@@ -1,17 +1,10 @@
 import gsap from "gsap";
 
-import * as THREE from "three";
 import Stats from "stats.js";
 
 import { Pane } from "tweakpane";
 
-import {
-  tap,
-  from,
-  switchMap,
-  takeUntil,
-  Subject,
-} from "rxjs";
+import { tap, concat, from, finalize, catchError, combineLatest } from "rxjs";
 
 import {
   Scene,
@@ -36,56 +29,22 @@ import {
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { getFFTs, getPalette, invlerp, lerp } from "./utils";
 
 import { fs, vs } from "./shaders/materials/line";
 
-import { meydaPromise, features, signal, cleanup } from "./AudioFeaturesExtractor";
+import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
 import { dpr, needsResize } from "./lib/three";
 
+const audioFeaturesExtractor = new AudioFeaturesExtractor();
+
 const fftSize = 512;
 
-const numLines = 45;
-
-// Performance optimization constants
-const RENDER_CONSTANTS = {
-  FFT_Y_OFFSET: -15,
-  FFT_Z_BASE: 15,
-  FFT_Z_STEP_MULTIPLIER: 5,
-  SIGNAL_SCALE: 30,
-  SIGNAL_X_SCALE: 30,
-  SIGNAL_ROTATION_SCALE: 1e-3,
-  SIGNAL_SCALE_MULTIPLIER: 0.5
-};
-
-// Pre-calculated logarithmic values for performance
-let preCalculatedLogValues = null;
-
-// Performance optimization - dirty checking
-let lastAudioState = {
-  loudness: 0,
-  perceptualSharpness: 0,
-  perceptualSpread: 0,
-  spectralFlatness: 0
-};
-let lastParams = { amount: 10, xscale: 50 };
-const CHANGE_THRESHOLD = 0.001; // Minimum change to trigger update
-
-// Cleanup management
-const destroy$ = new Subject();
-
-// Cleanup function for the entire app
-function appCleanup() {
-  console.log("App cleanup initiated");
-  cleanup(); // Audio cleanup
-  destroy$.next(true);
-  destroy$.complete();
-}
+const numLines = 50;
 
 const btn = document.querySelector("#cover");
 const canvas = document.querySelector("#canvas");
@@ -95,7 +54,8 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette;
 
-let renderer, camera, scene, composer, bloomPass, controls, iSignalMesh, fftMeshes, iDummy, iColor;
+let renderer, camera, composer, bloomPass, controls;
+let iSignalMesh, fftMeshes, iDummy, iColor;
 
 const params = {
   amount: 10,
@@ -153,312 +113,266 @@ gui.addMonitor(audio, "spectralFlatness", {
 })
  */
 
-function init() {
-  // Pre-calculate logarithmic values for performance optimization
-  preCalculatedLogValues = new Float32Array(fftSize);
-  for (let j = 0; j < fftSize; j++) {
-    // Avoid log(0) which gives -Infinity, start from j+1
-    const ratio = (j + 1) / fftSize;
-    preCalculatedLogValues[j] = Math.log10(ratio);
-  }
+export default class App {
+  init() {
+    // for instancedmesh computation
+    iDummy = new Object3D();
+    iColor = new Color();
 
-  // for instancedmesh computation
-  iDummy = new Object3D();
-  iColor = new Color();
+    const scene = new Scene();
 
-  scene = new Scene();
+    camera = new PerspectiveCamera(75, 4 / 3, 5, 1e4);
+    camera.position.set(0, -5, 10);
+    camera.lookAt(0, 0, 0);
 
-  camera = new PerspectiveCamera(75, 4 / 3, 5, 1e4);
-  camera.position.set(0, -5, 10);
-  camera.lookAt(0, 0, 0);
-
-  renderer = new WebGLRenderer({
-    canvas,
-    antialias: false,
-    alpha: true,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(dpr);
-  
-  // Correct size initialization for postprocessing
-  const w = canvas.clientWidth * dpr;
-  const h = canvas.clientHeight * dpr;
-  renderer.setSize(w, h, false);
-
-  controls = new OrbitControls(camera, canvas);
-  controls.enableDamping = true;
-  controls.enablePan = false;
-  controls.maxDistance = 25;
-  controls.minDistance = 7;
-  controls.dampingFactor = 5e-2;
-  controls.minAzimuthAngle = -Math.PI / 1;
-  controls.maxAzimuthAngle = Math.PI / 1;
-  controls.minPolarAngle = 1;
-  controls.maxPolarAngle = Math.PI / 2;
-  controls.update();
-
-  const directionalLight = new DirectionalLight(0xffffff, 0.75);
-  directionalLight.position.set(0, 1, 1);
-
-  scene.add(directionalLight);
-
-  // Setup stable Three.js postprocessing
-  const renderPass = new RenderPass(scene, camera);
-  
-  const resolution = new Vector2(w, h);
-  bloomPass = new UnrealBloomPass(resolution, 2.0, 0.0, 1.5);
-  bloomPass.threshold = 0.0;
-  bloomPass.strength = 2.0;
-  bloomPass.radius = 1.5;
-
-  composer = new EffectComposer(renderer);
-  composer.addPass(renderPass);
-  composer.addPass(bloomPass);
-
-  // Unchanging variables
-  //const length = 1;
-  //const hex = 0xffff00;
-  //const dir = new Vector3(0, 1, 0);
-
-  //const rightDir = new Vector3(1, 0, 0);
-  //const origin = new Vector3(1, -5, -10);
-
-  //let centroidArrow = new ArrowHelper(dir, origin, length, 0xffff00);
-  //let rolloffArrow = new ArrowHelper(dir, origin, length, 0x00ff00);
-  //let rmsArrow = new ArrowHelper(rightDir, origin, length, 0xff00ff);
-
-  //const lineMaterial = new LineBasicMaterial({ color: 0x00fff0 });
-  //const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
-
-  ffts = getFFTs(numLines, fftSize);
-
-  // 1. INSTANCED MESH for signal
-  iSignalMesh = new InstancedMesh(
-    new BoxGeometry(1.0),
-    new MeshLambertMaterial({ 
-      color: 0xffffff,
-      emissive: 0x111111,
-      emissiveIntensity: 0.3
-    }),
-    fftSize
-  );
-  iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-  iSignalMesh.position.set(-10, 0, 0);
-  iSignalMesh.scale.set(1, 1, 1);
-
-  // get meshes color
-  // check https://github.com/bpostlethwaite/colormap
-  const paletteLabel = "picnic";
-
-  let colors = getPalette(paletteLabel, ffts.length);
-
-  signalPalette = getPalette(paletteLabel, fftSize).map(a => new Color().fromArray(a));
-
-  signalPalette.forEach((c, i) => iSignalMesh.setColorAt(i, c));
-
-  scene.add(iSignalMesh);
-
-  // 2. group of meshes for fft spectrum
-  fftMeshes = new Group();
-  for (let i = 0; i < ffts.length; i++) {
-    if (ffts[i]) {
-      const fftGeom = new BufferGeometry();
-      fftGeom.setAttribute(
-        "position",
-        new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
-      );
-      fftGeom.setDrawRange(0, ffts[i].length);
-      //
-      const fftMat = new RawShaderMaterial({
-        uniforms: {
-          uColor: {
-            value: colors[ffts.length - i - 1],
-          },
-        },
-        vertexShader: vs,
-        fragmentShader: fs,
-        transparent: true,
-        side: DoubleSide,
-      });
-      //
-      const mesh = new Mesh(fftGeom, fftMat);
-      mesh.frustumCulled = false;
-      //
-      fftMeshes.add(mesh);
-    }
-  }
-
-  scene.add(fftMeshes);
-
-  console.log("init");
-}
-
-function intro() {
-  gsap
-    .timeline()
-    .to("#cover", {
-      duration: 1,
-      autoAlpha: 0,
-      ease: "power2.out",
-    })
-    .to("#cover", {
-      duration: 1.0,
-      delay: 1,
-      autoAlpha: 0,
-      ease: "power2.out",
+    renderer = new WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance",
     });
+    renderer.setPixelRatio(dpr);
 
-  console.log("intro");
+    controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.maxDistance = 25;
+    controls.minDistance = 7;
+    controls.dampingFactor = 5e-2;
+    controls.minAzimuthAngle = -Math.PI / 1;
+    controls.maxAzimuthAngle = Math.PI / 1;
+    controls.minPolarAngle = 1;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.update();
 
-  renderer.setAnimationLoop(render)
-}
+    const directionalLight = new DirectionalLight(0xffffff, 0.75);
+    directionalLight.position.set(0, 1, 1);
 
-function render(/*[{ timestamp }]*/ timestamp) {
+    scene.add(directionalLight);
 
-  // https://threejs.org/manual/#en/responsive
-  if (needsResize({ renderer, composer })) {
-    const canvas = renderer.domElement;
-    camera.aspect = canvas.clientWidth / canvas.clientHeight;
-    camera.updateProjectionMatrix();
+    const renderPass = new RenderPass(scene, camera);
+
+    let w = canvas.clientWidth * dpr;
+    let h = canvas.clientHeight * dpr;
+    let resolution = new Vector2(w, h);
+
+    //fbo = new DoubleBuffer({ width: w, height: h});
+    bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
+    bloomPass.threshold = 0.0;
+    bloomPass.strength = 1.75;
+    bloomPass.radius = 1.5;
+
+    composer = new EffectComposer(renderer);
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
+
+    // Unchanging variables
+    //const length = 1;
+    //const hex = 0xffff00;
+    //const dir = new Vector3(0, 1, 0);
+
+    //const rightDir = new Vector3(1, 0, 0);
+    //const origin = new Vector3(1, -5, -10);
+
+    //let centroidArrow = new ArrowHelper(dir, origin, length, 0xffff00);
+    //let rolloffArrow = new ArrowHelper(dir, origin, length, 0x00ff00);
+    //let rmsArrow = new ArrowHelper(rightDir, origin, length, 0xff00ff);
+
+    //const lineMaterial = new LineBasicMaterial({ color: 0x00fff0 });
+    //const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
+
+    ffts = getFFTs(numLines, fftSize);
+
+    // 1. INSTANCED MESH for signal
+    iSignalMesh = new InstancedMesh(
+      new BoxGeometry(1.0),
+      new MeshLambertMaterial({ color: 0xffffff }),
+      fftSize
+    );
+    iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    iSignalMesh.position.set(-8, 0, 0);
+    iSignalMesh.scale.set(1, 1, 1);
+
+    // get meshes color
+    // check https://github.com/bpostlethwaite/colormap
+    const paletteLabel = "picnic";
+
+    let colors = getPalette(paletteLabel, ffts.length);
+
+    signalPalette = getPalette(paletteLabel, fftSize).map((a) =>
+      new Color().fromArray(a)
+    );
+
+    signalPalette.forEach((c, i) => iSignalMesh.setColorAt(i, c));
+
+    scene.add(iSignalMesh);
+
+    // 2. group of meshes for fft spectrum
+    fftMeshes = new Group();
+    for (let i = 0; i < ffts.length; i++) {
+      if (ffts[i]) {
+        const fftGeom = new BufferGeometry();
+        fftGeom.setAttribute(
+          "position",
+          new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
+        );
+        fftGeom.setDrawRange(0, ffts[i].length);
+        //
+        const fftMat = new RawShaderMaterial({
+          uniforms: {
+            uColor: {
+              value: colors[ffts.length - i - 1],
+            },
+          },
+          vertexShader: vs,
+          fragmentShader: fs,
+          transparent: true,
+          side: DoubleSide,
+        });
+        //
+        const mesh = new Mesh(fftGeom, fftMat);
+        mesh.frustumCulled = false;
+        //
+        fftMeshes.add(mesh);
+      }
+    }
+
+    scene.add(fftMeshes);
+
+    console.log("init");
   }
 
-  const audioFeatures = features([
-    "perceptualSharpness",
-    "perceptualSpread",
-    "spectralFlatness",
-    "amplitudeSpectrum", // fft
-    "loudness",
-  ]);
+  intro() {
+    gsap
+      .timeline()
+      .to("#cover", {
+        duration: 1,
+        autoAlpha: 0,
+        ease: "power2.out",
+      })
+      .to("#cover", {
+        duration: 1.0,
+        delay: 1,
+        autoAlpha: 0,
+        ease: "power2.out",
+      });
 
-  if (!audioFeatures) return;
+    console.log("intro");
+  }
 
-  // fill ffts spectrum buffers
-  ffts.pop();
-  ffts.unshift(audioFeatures.amplitudeSpectrum);
+  render([{ timestamp }]) {
+    // https://threejs.org/manual/#en/responsive
+    if (needsResize({ renderer, composer })) {
+      const canvas = renderer.domElement;
+      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+      camera.updateProjectionMatrix();
+    }
 
-  const { perceptualSpread, perceptualSharpness, spectralFlatness } = audioFeatures;
+    if (!audioFeaturesExtractor) return;
 
-  // Validate audio values to prevent NaN propagation
-  const loudnessValue = audioFeatures.loudness?.total || 0;
-  audio.loudness = Number.isFinite(loudnessValue) ? invlerp(3, 50, loudnessValue) : 0;
-  audio.perceptualSharpness = Number.isFinite(perceptualSharpness) ? perceptualSharpness : 0;
-  audio.perceptualSpread = Number.isFinite(perceptualSpread) ? perceptualSpread : 0;
-  audio.spectralFlatness = Number.isFinite(spectralFlatness) ? spectralFlatness : 0;
+    const features = audioFeaturesExtractor.features([
+      "perceptualSharpness",
+      "perceptualSpread",
+      "spectralFlatness",
+      "amplitudeSpectrum", // fft
+      "loudness",
+    ]);
 
-  // affect blooming with perceptualSharpness / loudness
-  bloomPass.strength = lerp(1.5, 4.0, audio.loudness);
-  bloomPass.radius = lerp(1.0, 2.5, audio.perceptualSharpness);
+    if (!features) return;
 
-  // render ffts - optimized loop with dirty checking
-  const audioChanged = 
-    Math.abs(audio.loudness - lastAudioState.loudness) > CHANGE_THRESHOLD ||
-    Math.abs(audio.perceptualSharpness - lastAudioState.perceptualSharpness) > CHANGE_THRESHOLD ||
-    Math.abs(audio.perceptualSpread - lastAudioState.perceptualSpread) > CHANGE_THRESHOLD;
-  
-  const paramsChanged = 
-    params.amount !== lastParams.amount || 
-    params.xscale !== lastParams.xscale;
+    // fill ffts spectrum buffers
+    ffts.pop();
+    ffts.unshift(features.amplitudeSpectrum);
 
-  // Only update positions if there are significant changes or new FFT data
-  if (audioChanged || paramsChanged || audioFeatures.amplitudeSpectrum) {
+    const { perceptualSpread, perceptualSharpness, spectralFlatness } =
+      features;
+
+    audio.loudness = invlerp(3, 50, features.loudness.total);
+    audio.perceptualSharpness = perceptualSharpness;
+    audio.perceptualSpread = perceptualSpread;
+    audio.spectralFlatness = spectralFlatness;
+
+    bloomPass.strength = lerp(1, 1.25, audio.loudness);
+    bloomPass.radius = lerp(1, 3, perceptualSharpness);
+
+    // render ffts
     for (let i = 0; i < ffts.length; i++) {
-
       const position = fftMeshes.children[i].geometry.getAttribute("position");
-      const positionArray = position.array;
-      const fftData = ffts[i];
-      const zPosition = RENDER_CONSTANTS.FFT_Z_BASE - i * (RENDER_CONSTANTS.FFT_Z_STEP_MULTIPLIER * audio.perceptualSpread);
-      const yOffset = RENDER_CONSTANTS.FFT_Y_OFFSET + audio.perceptualSharpness;
-      const amplitudeScale = params.amount * audio.loudness;
-      
-      // Pre-calculate common values outside inner loop
-      const xscaleBase = params.xscale;
-      
-      for (let j = 0; j < position.count; j++) {
+
+      for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
-        
-        // x -> frequency bins (using pre-calculated log values)
-        const xPos = xscaleBase + xscaleBase * preCalculatedLogValues[j];
+        // x -> frequency bins
+        // https://www.desmos.com/calculator/ss4rcedsl4
+        position.array[index + 0] =
+          params.xscale + params.xscale * Math.log10(j / ffts[i].length);
         // y -> magnitude
-        const yPos = yOffset + (fftData[j] || 0) * amplitudeScale;
-        // z -> depth based on line index
-        const zPos = zPosition;
-        
-        // Validate finite values to prevent NaN
-        positionArray[index] = Number.isFinite(xPos) ? xPos : 0;
-        positionArray[index + 1] = Number.isFinite(yPos) ? yPos : yOffset;
-        positionArray[index + 2] = Number.isFinite(zPos) ? zPos : 0;
+        position.array[index + 1] =
+          -15 +
+          audio.perceptualSharpness +
+          ffts[i][j] * (params.amount * audio.loudness);
+        position.array[index + 2] = +15 - i * (5 * audio.perceptualSpread);
       }
       position.needsUpdate = true;
     }
-    
-    // Update last known state
-    lastAudioState.loudness = audio.loudness;
-    lastAudioState.perceptualSharpness = audio.perceptualSharpness;
-    lastAudioState.perceptualSpread = audio.perceptualSpread;
 
-    lastParams.amount = params.amount;
-    lastParams.xscale = params.xscale;
-  }
+    // domain-time  via instancedgeometry
+    const signal = audioFeaturesExtractor.signal();
 
-  // domain-time, instancedmesh - optimized with throttling
-  const audioSignal = signal();
-  if (audioSignal && iSignalMesh && (audioChanged || paramsChanged)) {
-    const signalScale = RENDER_CONSTANTS.SIGNAL_SCALE;
-    const signalXScale = RENDER_CONSTANTS.SIGNAL_X_SCALE;
-    const rotationScale = RENDER_CONSTANTS.SIGNAL_ROTATION_SCALE;
-    const scaleMultiplier = RENDER_CONSTANTS.SIGNAL_SCALE_MULTIPLIER;
-    
-    // Pre-calculate common values
-    const rotationX = (timestamp + audio.loudness) * rotationScale;
-    const rotationZ = audio.loudness;
-    const scaleX = audio.loudness * scaleMultiplier;
-    const scaleYZ = audio.perceptualSharpness * scaleMultiplier;
-    
-    for (let i = 0; i < fftSize; i++) {
-      iDummy.position.set(
-        (signalXScale * i) / fftSize, 
-        audioSignal[i] * signalScale, 
-        0
-      );
+    if (!!signal && iSignalMesh) {
+      for (let i = 0; i < fftSize; i++) {
+        iDummy.position.set((15 * i) / fftSize, signal[i] * 30, 0);
 
-      iDummy.rotation.set(rotationX, 0, rotationZ);
-      iDummy.scale.set(scaleX, scaleYZ, scaleYZ);
-      
-      iDummy.updateMatrix();
-      iColor.set(signalPalette[i]);
+        iDummy.rotation.set(
+          (timestamp + audio.loudness) * 1e-3,
+          0,
+          audio.loudness
+        );
 
-      iSignalMesh.setColorAt(i, iColor);
-      iSignalMesh.setMatrixAt(i, iDummy.matrix);
+        iDummy.scale.set(
+          audio.loudness * 0.5,
+          audio.perceptualSharpness * 0.5,
+          audio.perceptualSharpness * 0.5
+        );
+        iDummy.updateMatrix();
+        iColor.set(signalPalette[i]);
+
+        iSignalMesh.setColorAt(i, iColor);
+        iSignalMesh.setMatrixAt(i, iDummy.matrix);
+      }
+      iSignalMesh.instanceMatrix.needsUpdate = true;
+      iSignalMesh.instanceColor.needsUpdate = true;
     }
-    
-    iSignalMesh.instanceMatrix.needsUpdate = true;
-    iSignalMesh.instanceColor.needsUpdate = true;
+
+    controls.update();
+    composer.render();
+
+    stats.update();
   }
 
-  controls.update();
+  run$() {
+    // Start GSAP animation for cover element
+    gsap.timeline().to("#cover", {
+      duration: 2,
+      autoAlpha: 1,
+      ease: "expo.inOut",
+    });
 
-  composer.render();
-
-  stats.update();
+    // Combine observables
+    return concat(
+      combineLatest([
+        buttonStart$(btn),
+        from(audioFeaturesExtractor.meydaPromise({ fftSize })),
+      ]).pipe(
+        tap(() => {
+          this.init();
+          this.intro();
+        }),
+        catchError((error) => {
+          console.error("Error during initialization:", error);
+        })
+      ),
+      // Render with pause functionality
+      renderWithPause$(pauseKey$(32)).pipe(tap(this.render))
+    ).subscribe();
+  }
 }
-
-function run() {
-
-  // Show initial UI
-  gsap.to("#cover", { duration: 1, autoAlpha: 1 });
-
-  // Simple flow: button click → audio setup → init → render loop
-  buttonStart$(btn)
-    .pipe(
-      switchMap(() => from(meydaPromise({ fftSize }))),
-      tap(() => {
-        init();
-        intro();
-      }),
-      //switchMap(() => renderWithPause$(pauseKey$(32))),
-      takeUntil(destroy$)
-    )
-    .subscribe();
-}
-
-export { run };

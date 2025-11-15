@@ -1,3 +1,4 @@
-import * as App from "./App.js";
+import App from "./App";
 
-document.addEventListener("DOMContentLoaded", () => App.run());
+const demo = new App();
+demo.run$();
