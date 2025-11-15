@@ -309,17 +309,17 @@ function intro() {
     });
 
   console.log("intro");
+
+  renderer.setAnimationLoop(render)
 }
 
-function render([{ timestamp }]) {
+function render(/*[{ timestamp }]*/ timestamp) {
 
   // https://threejs.org/manual/#en/responsive
   if (needsResize({ renderer, composer })) {
     const canvas = renderer.domElement;
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
-
-    composer.setSize(canvas.clientWidth, canvas.clientHeight)
   }
 
   const audioFeatures = features([
@@ -455,17 +455,10 @@ function run() {
         init();
         intro();
       }),
-      switchMap(() => renderWithPause$(pauseKey$(32))),
+      //switchMap(() => renderWithPause$(pauseKey$(32))),
       takeUntil(destroy$)
     )
-    .subscribe({
-      next: render,
-      error: (error) => {
-        console.error("App error:", error);
-        appCleanup();
-      },
-      complete: appCleanup
-    });
+    .subscribe();
 }
 
 export { run };
