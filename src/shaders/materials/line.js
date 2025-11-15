@@ -1,6 +1,6 @@
 export const vs = `
-    precision mediump float;
-    precision mediump int;
+    precision highp float;
+    precision highp int;
   
     uniform mat4 viewMatrix;
     uniform mat4 projectionMatrix;
@@ -22,11 +22,11 @@ export const vs = `
     }
   `;
 export const fs = `
-    precision mediump float;
+    precision highp float;
   
     varying vec4 vColor;
   
     void main(){
-      gl_FragColor = vColor;
+      gl_FragColor =vColor;
     }
   `;

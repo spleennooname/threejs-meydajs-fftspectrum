@@ -1,6 +1,6 @@
 {
   "name": "fft-spectrum",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "author": "Andrea Bovo <https://github.com/spleennooname>",
   "description": "audio reactive experiment with ThreeJS and Meyda",
@@ -33,16 +33,12 @@
   ],
   "dependencies": {
     "colormap": "^2.3.2",
-    "dat.gui": "^0.7.9",
-    "detect-gpu": "^4.0.24",
     "gsap": "^3.10.4",
-    "javascript-obfuscator": "^4.0.0",
     "meyda": "^5.6.3",
-    "raf-polyfill": "^1.0.0",
+    "postprocessing": "^6.38.0",
     "rxjs": "^7.8.2",
     "stats.js": "^0.17.0",
     "three": "^0.181.1",
-    "three-instanced-uniforms-mesh": "^0.46.0",
     "tweakpane": "^3.0.8"
   },
   "volta": {

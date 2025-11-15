@@ -11,20 +11,23 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       esbuildCommonjs(["colormap"])
     ],
+    optimizeDeps: {
+      include: ["three", "postprocessing", "rxjs", "meyda", "gsap", "tweakpane"]
+    },
     build: {
-      // cssCodeSplit: true,
       minify: "esbuild",
-      chunkSizeWarningLimit:1000,
-      rollupOptions:{
+      chunkSizeWarningLimit: 1000,
+      rollupOptions: {
         input: {
-          index  : "./index.html",
+          index: "./index.html",
         },
-        /* output:{
+        output: {
           manualChunks: {
-            three: [ "three" ],
-            meyda: [ "meyda" ]
+            three: ["three", "postprocessing"],
+            vendor: ["rxjs", "gsap", "tweakpane", "stats.js"],
+            audio: ["meyda", "colormap"]
           }
-        } */
+        }
       }
     }
   }

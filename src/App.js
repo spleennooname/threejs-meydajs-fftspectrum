@@ -1,5 +1,6 @@
 import gsap from "gsap";
 
+import * as THREE from "three";
 import Stats from "stats.js";
 
 import { Pane } from "tweakpane";
@@ -16,7 +17,8 @@ import {
   timer,
   EMPTY,
   shareReplay,
-  throttleTime,
+  takeUntil,
+  Subject,
 } from "rxjs";
 
 import {
@@ -24,7 +26,6 @@ import {
   PerspectiveCamera,
   WebGLRenderer,
   DirectionalLight,
-  //ArrowHelper,
   Group,
   Object3D,
   Mesh,
@@ -33,17 +34,13 @@ import {
   BoxGeometry,
   BufferAttribute,
   InstancedMesh,
-  Vector2,
-  //Vector3,
   DynamicDrawUsage,
   DoubleSide,
   RawShaderMaterial,
   MeshLambertMaterial,
 } from "three";
 
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { EffectComposer, RenderPass, BloomEffect, EffectPass } from "postprocessing";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
@@ -51,14 +48,49 @@ import { getFFTs, getPalette, invlerp, lerp } from "./utils";
 
 import { fs, vs } from "./shaders/materials/line";
 
-import { meydaPromise, features, signal } from "./AudioFeaturesExtractor";
+import { meydaPromise, features, signal, cleanup } from "./AudioFeaturesExtractor";
 
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
 import { dpr, needsResize } from "./lib/three";
 
 const fftSize = 512;
 
-const numLines = 50;
+const numLines = 45;
+
+// Performance optimization constants
+const RENDER_CONSTANTS = {
+  FFT_Y_OFFSET: -15,
+  FFT_Z_BASE: 15,
+  FFT_Z_STEP_MULTIPLIER: 5,
+  SIGNAL_SCALE: 30,
+  SIGNAL_X_SCALE: 30,
+  SIGNAL_ROTATION_SCALE: 1e-3,
+  SIGNAL_SCALE_MULTIPLIER: 0.5
+};
+
+// Pre-calculated logarithmic values for performance
+let preCalculatedLogValues = null;
+
+// Performance optimization - dirty checking
+let lastAudioState = {
+  loudness: 0,
+  perceptualSharpness: 0,
+  perceptualSpread: 0,
+  spectralFlatness: 0
+};
+let lastParams = { amount: 10, xscale: 50 };
+const CHANGE_THRESHOLD = 0.001; // Minimum change to trigger update
+
+// Cleanup management
+const destroy$ = new Subject();
+
+// Cleanup function for the entire app
+function appCleanup() {
+  console.log("App cleanup initiated");
+  cleanup(); // Audio cleanup
+  destroy$.next(true);
+  destroy$.complete();
+}
 
 const btn = document.querySelector("#cover");
 const canvas = document.querySelector("#canvas");
@@ -68,7 +100,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette;
 
-let renderer, camera, composer, bloomPass, controls, iSignalMesh, fftMeshes, iDummy, iColor;
+let renderer, camera, composer, bloomEffect, controls, iSignalMesh, fftMeshes, iDummy, iColor;
 
 const params = {
   amount: 10,
@@ -127,6 +159,14 @@ gui.addMonitor(audio, "spectralFlatness", {
  */
 
 function init() {
+  // Pre-calculate logarithmic values for performance optimization
+  preCalculatedLogValues = new Float32Array(fftSize);
+  for (let j = 0; j < fftSize; j++) {
+    // Avoid log(0) which gives -Infinity, start from j+1
+    const ratio = (j + 1) / fftSize;
+    preCalculatedLogValues[j] = Math.log10(ratio);
+  }
+
   // for instancedmesh computation
   iDummy = new Object3D();
   iColor = new Color();
@@ -140,9 +180,13 @@ function init() {
   renderer = new WebGLRenderer({
     canvas,
     antialias: false,
+    alpha: true,
     powerPreference: "high-performance",
   });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.NoToneMapping;
   renderer.setPixelRatio(dpr);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -161,21 +205,21 @@ function init() {
 
   scene.add(directionalLight);
 
+  // Setup postprocessing pipeline
+  composer = new EffectComposer(renderer);
+
+  // Create bloom effect with better performance
+  bloomEffect = new BloomEffect({
+    intensity: 3.0,
+    luminanceThreshold: 0.0,
+    luminanceSmoothing: 0.8,
+    mipmapBlur: false,
+  });
+  
   const renderPass = new RenderPass(scene, camera);
 
-  let w = canvas.clientWidth * dpr;
-  let h = canvas.clientHeight * dpr;
-  let resolution = new Vector2(w, h);
-
-  //fbo = new DoubleBuffer({ width: w, height: h});
-  bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
-  bloomPass.threshold = 0.0;
-  bloomPass.strength = 1.75;
-  bloomPass.radius = 1.5;
-
-  composer = new EffectComposer(renderer);
   composer.addPass(renderPass);
-  composer.addPass(bloomPass);
+  composer.addPass(new EffectPass(camera, bloomEffect));
 
   // Unchanging variables
   //const length = 1;
@@ -197,7 +241,11 @@ function init() {
   // 1. INSTANCED MESH for signal
   iSignalMesh = new InstancedMesh(
     new BoxGeometry(1.0),
-    new MeshLambertMaterial({ color: 0xffffff }),
+    new MeshLambertMaterial({ 
+      color: 0xffffff,
+      emissive: 0x111111,
+      emissiveIntensity: 0.3
+    }),
     fftSize
   );
   iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
@@ -270,6 +318,7 @@ function intro() {
 }
 
 function render([{ timestamp }]) {
+
   // https://threejs.org/manual/#en/responsive
   if (needsResize({ renderer, composer })) {
     const canvas = renderer.domElement;
@@ -293,56 +342,105 @@ function render([{ timestamp }]) {
 
   const { perceptualSpread, perceptualSharpness, spectralFlatness } = audioFeatures;
 
-  audio.loudness = invlerp(3, 50, audioFeatures.loudness.total);
-  audio.perceptualSharpness = perceptualSharpness;
-  audio.perceptualSpread = perceptualSpread;
-  audio.spectralFlatness = spectralFlatness;
+  // Validate audio values to prevent NaN propagation
+  const loudnessValue = audioFeatures.loudness?.total || 0;
+  audio.loudness = Number.isFinite(loudnessValue) ? invlerp(3, 50, loudnessValue) : 0;
+  audio.perceptualSharpness = Number.isFinite(perceptualSharpness) ? perceptualSharpness : 0;
+  audio.perceptualSpread = Number.isFinite(perceptualSpread) ? perceptualSpread : 0;
+  audio.spectralFlatness = Number.isFinite(spectralFlatness) ? spectralFlatness : 0;
 
-  // affect blooming with perceptualSharpnes / loudness
-  bloomPass.strength = lerp(1, 1.25, audio.loudness);
-  bloomPass.radius = lerp(1, 3, perceptualSharpness);
+  // affect blooming with perceptualSharpness / loudness (more aggressive values)
+  bloomEffect.intensity = lerp(2.0, 5.0, audio.loudness);
+  bloomEffect.luminanceSmoothing = lerp(0.5, 1.5, audio.perceptualSharpness);
 
-  // render ffts
-  for (let i = 0; i < ffts.length; i++) {
-    const position = fftMeshes.children[i].geometry.getAttribute("position");
+  // render ffts - optimized loop with dirty checking
+  const audioChanged = 
+    Math.abs(audio.loudness - lastAudioState.loudness) > CHANGE_THRESHOLD ||
+    Math.abs(audio.perceptualSharpness - lastAudioState.perceptualSharpness) > CHANGE_THRESHOLD ||
+    Math.abs(audio.perceptualSpread - lastAudioState.perceptualSpread) > CHANGE_THRESHOLD;
+  
+  const paramsChanged = 
+    params.amount !== lastParams.amount || 
+    params.xscale !== lastParams.xscale;
 
-    for (let j = 0; j < position.count * 3; j++) {
-      const index = j * 3;
-      // x -> frequency bins
-      // https://www.desmos.com/calculator/ss4rcedsl4
-      position.array[index + 0] = params.xscale + params.xscale * Math.log10(j / ffts[i].length);
-      // y -> magnitude
-      position.array[index + 1] =
-        -15 + audio.perceptualSharpness + ffts[i][j] * (params.amount * audio.loudness);
-      position.array[index + 2] = +15 - i * (5 * audio.perceptualSpread);
+  // Only update positions if there are significant changes or new FFT data
+  if (audioChanged || paramsChanged || audioFeatures.amplitudeSpectrum) {
+    for (let i = 0; i < ffts.length; i++) {
+
+      const position = fftMeshes.children[i].geometry.getAttribute("position");
+      const positionArray = position.array;
+      const fftData = ffts[i];
+      const zPosition = RENDER_CONSTANTS.FFT_Z_BASE - i * (RENDER_CONSTANTS.FFT_Z_STEP_MULTIPLIER * audio.perceptualSpread);
+      const yOffset = RENDER_CONSTANTS.FFT_Y_OFFSET + audio.perceptualSharpness;
+      const amplitudeScale = params.amount * audio.loudness;
+      
+      // Pre-calculate common values outside inner loop
+      const xscaleBase = params.xscale;
+      
+      for (let j = 0; j < position.count; j++) {
+        const index = j * 3;
+        
+        // x -> frequency bins (using pre-calculated log values)
+        const xPos = xscaleBase + xscaleBase * preCalculatedLogValues[j];
+        // y -> magnitude
+        const yPos = yOffset + (fftData[j] || 0) * amplitudeScale;
+        // z -> depth based on line index
+        const zPos = zPosition;
+        
+        // Validate finite values to prevent NaN
+        positionArray[index] = Number.isFinite(xPos) ? xPos : 0;
+        positionArray[index + 1] = Number.isFinite(yPos) ? yPos : yOffset;
+        positionArray[index + 2] = Number.isFinite(zPos) ? zPos : 0;
+      }
+      position.needsUpdate = true;
     }
-    position.needsUpdate = true;
+    
+    // Update last known state
+    lastAudioState.loudness = audio.loudness;
+    lastAudioState.perceptualSharpness = audio.perceptualSharpness;
+    lastAudioState.perceptualSpread = audio.perceptualSpread;
+
+    lastParams.amount = params.amount;
+    lastParams.xscale = params.xscale;
   }
 
-  // domain-time, instancedmesh
+  // domain-time, instancedmesh - optimized with throttling
   const audioSignal = signal();
-  if (!!audioSignal && iSignalMesh) {
+  if (audioSignal && iSignalMesh && (audioChanged || paramsChanged)) {
+    const signalScale = RENDER_CONSTANTS.SIGNAL_SCALE;
+    const signalXScale = RENDER_CONSTANTS.SIGNAL_X_SCALE;
+    const rotationScale = RENDER_CONSTANTS.SIGNAL_ROTATION_SCALE;
+    const scaleMultiplier = RENDER_CONSTANTS.SIGNAL_SCALE_MULTIPLIER;
+    
+    // Pre-calculate common values
+    const rotationX = (timestamp + audio.loudness) * rotationScale;
+    const rotationZ = audio.loudness;
+    const scaleX = audio.loudness * scaleMultiplier;
+    const scaleYZ = audio.perceptualSharpness * scaleMultiplier;
+    
     for (let i = 0; i < fftSize; i++) {
-      iDummy.position.set((30 * i) / fftSize, audioSignal[i] * 30, 0);
-
-      iDummy.rotation.set((timestamp + audio.loudness) * 1e-3, 0, audio.loudness);
-
-      iDummy.scale.set(
-        audio.loudness * 0.5,
-        audio.perceptualSharpness * 0.5,
-        audio.perceptualSharpness * 0.5
+      iDummy.position.set(
+        (signalXScale * i) / fftSize, 
+        audioSignal[i] * signalScale, 
+        0
       );
+
+      iDummy.rotation.set(rotationX, 0, rotationZ);
+      iDummy.scale.set(scaleX, scaleYZ, scaleYZ);
+      
       iDummy.updateMatrix();
       iColor.set(signalPalette[i]);
 
       iSignalMesh.setColorAt(i, iColor);
       iSignalMesh.setMatrixAt(i, iDummy.matrix);
     }
+    
     iSignalMesh.instanceMatrix.needsUpdate = true;
     iSignalMesh.instanceColor.needsUpdate = true;
   }
 
   controls.update();
+
   composer.render();
 
   stats.update();
@@ -361,6 +459,7 @@ function run() {
     buttonStart$(btn), // Attende il click dell'utente
     from(meydaPromise({ fftSize })), // Richiede permessi microfono e inizializza Meyda
   ]).pipe(
+    takeUntil(destroy$), // Cleanup automatico
     tap(() => init()), // Inizializza ThreeJS scene, camera, renderer
     finalize(() => intro()), // Nasconde il cover overlay
     retry({ count: 3, delay: 1000 }), // Retry automatico su errori (es. permessi negati)
@@ -382,21 +481,27 @@ function run() {
 
   // Stream di rendering: gestisce il loop di animazione
   const render$ = renderWithPause$(pauseKey$(32)).pipe(
-    // Spacebar per pause/resume
-    throttleTime(16), // Limita a ~60fps per performance
+    takeUntil(destroy$), // Cleanup automatico
     tap(render), // Esegue il rendering della scena
-    catchError(error => {
-      console.error("Render error:", error);
+    catchError(() => {
       // Recovery automatico dal rendering con breve delay
-      return timer(100).pipe(switchMap(() => renderWithPause$(pauseKey$(32))));
+      return timer(100).pipe(
+        takeUntil(destroy$),
+        switchMap(() => renderWithPause$(pauseKey$(32)))
+      );
     })
   );
 
   // Concatena gli stream: prima inizializzazione, poi rendering continuo
-  return concat(init$, render$).subscribe({
+  const subscription = concat(init$, render$).subscribe({
     error: error => console.error("App error:", error),
-    complete: () => console.log("App completed"),
+    complete: () => {
+      console.log("App completed");
+      appCleanup();
+    }
   });
+
+  return subscription;
 }
 
 export { run };

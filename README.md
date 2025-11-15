@@ -10,7 +10,7 @@
 
 ```
 
-![threejs r141](https://img.shields.io/badge/three-v133-green) ![meyda v5.4.0](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.5.5](https://img.shields.io/badge/rxjs-v7.0-green) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-21.7.3-green) ![npm](https://img.shields.io/badge/npm-8.19.4-blue) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
+![version](https://img.shields.io/badge/version-1.1.0-blue) ![threejs r141](https://img.shields.io/badge/three-v133-green) ![meyda v5.4.0](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.5.5](https://img.shields.io/badge/rxjs-v7.0-green) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-21.7.3-green) ![npm](https://img.shields.io/badge/npm-8.19.4-blue) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
