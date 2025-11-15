@@ -12,11 +12,7 @@ export default defineConfig(({ command, mode }) => {
       esbuildCommonjs(["colormap"])
     ],
     optimizeDeps: {
-      include: ["three", "postprocessing", "rxjs", "meyda", "gsap", "tweakpane"]
-    },
-    define: {
-      // Ensure postprocessing compatibility in production
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+      include: ["three", "rxjs", "meyda", "gsap", "tweakpane"]
     },
     build: {
       minify: "esbuild",
@@ -27,7 +23,7 @@ export default defineConfig(({ command, mode }) => {
         },
         output: {
           manualChunks: {
-            three: ["three", "postprocessing"],
+            three: ["three"],
             vendor: ["rxjs", "gsap", "tweakpane", "stats.js"],
             audio: ["meyda", "colormap"]
           }

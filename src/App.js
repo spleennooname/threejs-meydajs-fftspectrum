@@ -33,7 +33,9 @@ import {
   MeshLambertMaterial,
 } from "three";
 
-import { EffectComposer, RenderPass, BloomEffect, EffectPass } from "postprocessing";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
@@ -93,7 +95,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette;
 
-let renderer, camera, scene, composer, bloomEffect, controls, iSignalMesh, fftMeshes, iDummy, iColor;
+let renderer, camera, scene, composer, bloomPass, controls, iSignalMesh, fftMeshes, iDummy, iColor;
 
 const params = {
   amount: 10,
@@ -200,32 +202,18 @@ function init() {
 
   scene.add(directionalLight);
 
-  // Setup postprocessing pipeline with compatibility fix
-  composer = new EffectComposer(renderer, {
-    frameBufferType: undefined, // Let postprocessing auto-detect
-    multisampling: 0
-  });
-  
-  // Ensure composer has correct size before adding passes
-  composer.setSize(w, h);
-
-  // Create render pass first
+  // Setup stable Three.js postprocessing
   const renderPass = new RenderPass(scene, camera);
-  renderPass.clear = true;
   
-  // Create bloom effect with production-safe settings
-  bloomEffect = new BloomEffect({
-    intensity: 3.0,
-    luminanceThreshold: 0.0,
-    luminanceSmoothing: 0.8,
-    mipmapBlur: false,
-  });
-  
-  const effectPass = new EffectPass(camera, bloomEffect);
-  effectPass.renderToScreen = true;
+  const resolution = new Vector2(w, h);
+  bloomPass = new UnrealBloomPass(resolution, 2.0, 0.0, 1.5);
+  bloomPass.threshold = 0.0;
+  bloomPass.strength = 2.0;
+  bloomPass.radius = 1.5;
 
+  composer = new EffectComposer(renderer);
   composer.addPass(renderPass);
-  composer.addPass(effectPass);
+  composer.addPass(bloomPass);
 
   // Unchanging variables
   //const length = 1;
@@ -357,9 +345,9 @@ function render([{ timestamp }]) {
   audio.perceptualSpread = Number.isFinite(perceptualSpread) ? perceptualSpread : 0;
   audio.spectralFlatness = Number.isFinite(spectralFlatness) ? spectralFlatness : 0;
 
-  // affect blooming with perceptualSharpness / loudness (more aggressive values)
-  bloomEffect.intensity = lerp(2.0, 5.0, audio.loudness);
-  bloomEffect.luminanceSmoothing = lerp(0.5, 1.5, audio.perceptualSharpness);
+  // affect blooming with perceptualSharpness / loudness
+  bloomPass.strength = lerp(1.5, 4.0, audio.loudness);
+  bloomPass.radius = lerp(1.0, 2.5, audio.perceptualSharpness);
 
   // render ffts - optimized loop with dirty checking
   const audioChanged = 
@@ -449,26 +437,12 @@ function render([{ timestamp }]) {
 
   controls.update();
 
-  // Safe render with fallback
-  try {
-    composer.render();
-  } catch (error) {
-    console.warn("EffectComposer error, falling back to direct render:", error);
-    renderer.render(scene, camera);
-  }
+  composer.render();
 
   stats.update();
 }
 
 function run() {
-  // Setup cleanup handlers
-  window.addEventListener('beforeunload', appCleanup);
-  window.addEventListener('pagehide', appCleanup);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      import('./AudioFeaturesExtractor.js').then(({ suspend }) => suspend());
-    }
-  });
 
   // Show initial UI
   gsap.to("#cover", { duration: 1, autoAlpha: 1 });
