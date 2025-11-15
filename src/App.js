@@ -4,7 +4,7 @@ import Stats from "stats.js";
 
 import { Pane } from "tweakpane";
 
-import { tap, concat, from, finalize, catchError, combineLatest } from "rxjs";
+import { tap, concat, from, finalize, catchError, combineLatest, retry, EMPTY } from "rxjs";
 
 import {
   Scene,
@@ -40,11 +40,61 @@ import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
 import { dpr, needsResize } from "./lib/three";
 
+// Audio configuration constants
+const FFT_SIZE = 512;
+const NUM_FFT_LINES = 50;
+const SPACEBAR_KEY_CODE = 32;
+
+// Camera configuration constants
+const CAMERA_FOV = 75;
+const CAMERA_ASPECT = 4 / 3;
+const CAMERA_NEAR = 5;
+const CAMERA_FAR = 1e4;
+const CAMERA_POSITION_Y = -5;
+const CAMERA_POSITION_Z = 10;
+
+// Controls configuration constants
+const CONTROLS_MAX_DISTANCE = 25;
+const CONTROLS_MIN_DISTANCE = 7;
+const CONTROLS_DAMPING_FACTOR = 5e-2;
+const CONTROLS_MIN_POLAR_ANGLE = 1;
+const CONTROLS_MAX_POLAR_ANGLE = Math.PI / 2;
+
+// Light configuration constants
+const LIGHT_COLOR = 0xffffff;
+const LIGHT_INTENSITY = 0.75;
+const LIGHT_POSITION_Y = 1;
+const LIGHT_POSITION_Z = 1;
+
+// Bloom pass configuration constants
+const BLOOM_THRESHOLD = 0.0;
+const BLOOM_STRENGTH_BASE = 1.75;
+const BLOOM_STRENGTH_MIN = 1;
+const BLOOM_STRENGTH_MAX = 1.25;
+const BLOOM_RADIUS_BASE = 1.5;
+const BLOOM_RADIUS_MIN = 1;
+const BLOOM_RADIUS_MAX = 3;
+
+// FFT visualization constants
+const FFT_Y_OFFSET = -15;
+const FFT_Z_BASE = 15;
+const FFT_Z_STEP_MULTIPLIER = 5;
+
+// Signal visualization constants
+const SIGNAL_SCALE = 30;
+const SIGNAL_X_SCALE = 15;
+const SIGNAL_ROTATION_SCALE = 1e-3;
+const SIGNAL_SCALE_MULTIPLIER = 0.5;
+const SIGNAL_POSITION_X = -8;
+
+// Audio processing constants
+const LOUDNESS_MIN = 3;
+const LOUDNESS_MAX = 50;
+
+// Color palette
+const COLOR_PALETTE = "picnic";
+
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
-
-const fftSize = 512;
-
-const numLines = 50;
 
 const btn = document.querySelector("#cover");
 const canvas = document.querySelector("#canvas");
@@ -82,38 +132,42 @@ gui.addMonitor(audio, "loudness", {
   min: 0,
   max: 1,
 });
-// 0 = not rich, 1 = very rich
 gui.addMonitor(audio, "perceptualSpread", {
   view: "graph",
   min: 0,
   max: 1,
 });
-// 0 = not sharp, 1 very sharp
 gui.addMonitor(audio, "perceptualSharpness", {
   view: "graph",
   min: 0,
   max: 1,
 });
-// 1= flat 0 = noisy
 gui.addMonitor(audio, "spectralFlatness", {
   view: "graph",
   min: 0,
   max: 1,
 });
-// 1 = noisy, 0 = flat
-/* gui.addMonitor(audio, "spectralKurtosis", {
-  view: "graph",
-  min: 0,
-  max: 1,
-});
+
+/**
+ * Main Application class for audio-reactive WebGL visualization
+ * 
+ * This class orchestrates the entire application flow:
+ * - Initializes ThreeJS scene with FFT spectrum and signal visualization
+ * - Sets up audio processing pipeline using MeydaJS
+ * - Manages real-time rendering loop with audio-driven effects
+ * - Handles user interaction and RxJS reactive streams
  */
-/* gui.on("change", () => {
-
-
-})
- */
-
 export default class App {
+  /**
+   * Initializes the ThreeJS scene and all visual components
+   * 
+   * Sets up:
+   * - Camera, renderer, and lighting
+   * - OrbitControls for user interaction
+   * - Post-processing effects (UnrealBloomPass)
+   * - FFT spectrum visualization meshes
+   * - InstancedMesh for time-domain signal visualization
+   */
   init() {
     // for instancedmesh computation
     iDummy = new Object3D();
@@ -121,8 +175,8 @@ export default class App {
 
     const scene = new Scene();
 
-    camera = new PerspectiveCamera(75, 4 / 3, 5, 1e4);
-    camera.position.set(0, -5, 10);
+    camera = new PerspectiveCamera(CAMERA_FOV, CAMERA_ASPECT, CAMERA_NEAR, CAMERA_FAR);
+    camera.position.set(0, CAMERA_POSITION_Y, CAMERA_POSITION_Z);
     camera.lookAt(0, 0, 0);
 
     renderer = new WebGLRenderer({
@@ -136,17 +190,17 @@ export default class App {
     controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.enablePan = false;
-    controls.maxDistance = 25;
-    controls.minDistance = 7;
-    controls.dampingFactor = 5e-2;
-    controls.minAzimuthAngle = -Math.PI / 1;
-    controls.maxAzimuthAngle = Math.PI / 1;
-    controls.minPolarAngle = 1;
-    controls.maxPolarAngle = Math.PI / 2;
+    controls.maxDistance = CONTROLS_MAX_DISTANCE;
+    controls.minDistance = CONTROLS_MIN_DISTANCE;
+    controls.dampingFactor = CONTROLS_DAMPING_FACTOR;
+    controls.minAzimuthAngle = -Math.PI;
+    controls.maxAzimuthAngle = Math.PI;
+    controls.minPolarAngle = CONTROLS_MIN_POLAR_ANGLE;
+    controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE;
     controls.update();
 
-    const directionalLight = new DirectionalLight(0xffffff, 0.75);
-    directionalLight.position.set(0, 1, 1);
+    const directionalLight = new DirectionalLight(LIGHT_COLOR, LIGHT_INTENSITY);
+    directionalLight.position.set(0, LIGHT_POSITION_Y, LIGHT_POSITION_Z);
 
     scene.add(directionalLight);
 
@@ -156,50 +210,33 @@ export default class App {
     let h = canvas.clientHeight * dpr;
     let resolution = new Vector2(w, h);
 
-    //fbo = new DoubleBuffer({ width: w, height: h});
     bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
-    bloomPass.threshold = 0.0;
-    bloomPass.strength = 1.75;
-    bloomPass.radius = 1.5;
+    bloomPass.threshold = BLOOM_THRESHOLD;
+    bloomPass.strength = BLOOM_STRENGTH_BASE;
+    bloomPass.radius = BLOOM_RADIUS_BASE;
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
     composer.addPass(bloomPass);
 
-    // Unchanging variables
-    //const length = 1;
-    //const hex = 0xffff00;
-    //const dir = new Vector3(0, 1, 0);
 
-    //const rightDir = new Vector3(1, 0, 0);
-    //const origin = new Vector3(1, -5, -10);
-
-    //let centroidArrow = new ArrowHelper(dir, origin, length, 0xffff00);
-    //let rolloffArrow = new ArrowHelper(dir, origin, length, 0x00ff00);
-    //let rmsArrow = new ArrowHelper(rightDir, origin, length, 0xff00ff);
-
-    //const lineMaterial = new LineBasicMaterial({ color: 0x00fff0 });
-    //const yellowMaterial = new LineBasicMaterial({ color: 0x00ffff });
-
-    ffts = getFFTs(numLines, fftSize);
+    ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
     // 1. INSTANCED MESH for signal
     iSignalMesh = new InstancedMesh(
       new BoxGeometry(1.0),
-      new MeshLambertMaterial({ color: 0xffffff }),
-      fftSize
+      new MeshLambertMaterial({ color: LIGHT_COLOR }),
+      FFT_SIZE
     );
     iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    iSignalMesh.position.set(-8, 0, 0);
+    iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
     iSignalMesh.scale.set(1, 1, 1);
 
     // get meshes color
     // check https://github.com/bpostlethwaite/colormap
-    const paletteLabel = "picnic";
+    let colors = getPalette(COLOR_PALETTE, ffts.length);
 
-    let colors = getPalette(paletteLabel, ffts.length);
-
-    signalPalette = getPalette(paletteLabel, fftSize).map((a) =>
+    signalPalette = getPalette(COLOR_PALETTE, FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
@@ -217,7 +254,6 @@ export default class App {
           new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
         );
         fftGeom.setDrawRange(0, ffts[i].length);
-        //
         const fftMat = new RawShaderMaterial({
           uniforms: {
             uColor: {
@@ -229,10 +265,8 @@ export default class App {
           transparent: true,
           side: DoubleSide,
         });
-        //
         const mesh = new Mesh(fftGeom, fftMat);
         mesh.frustumCulled = false;
-        //
         fftMeshes.add(mesh);
       }
     }
@@ -242,6 +276,10 @@ export default class App {
     console.log("init");
   }
 
+  /**
+   * Handles the intro animation sequence
+   * Uses GSAP to animate the cover element fade out
+   */
   intro() {
     gsap
       .timeline()
@@ -260,6 +298,19 @@ export default class App {
     console.log("intro");
   }
 
+  /**
+   * Main render function called on each animation frame
+   * 
+   * @param {Array} params - Render parameters
+   * @param {Object} params[0] - First parameter object
+   * @param {number} params[0].timestamp - Current timestamp for animations
+   * 
+   * Processes:
+   * - Audio features extraction (loudness, perceptualSharpness, etc.)
+   * - FFT spectrum buffer updates and visualization
+   * - Time-domain signal rendering via InstancedMesh
+   * - Post-processing effects adjustment based on audio features
+   */
   render([{ timestamp }]) {
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
@@ -287,13 +338,13 @@ export default class App {
     const { perceptualSpread, perceptualSharpness, spectralFlatness } =
       features;
 
-    audio.loudness = invlerp(3, 50, features.loudness.total);
+    audio.loudness = invlerp(LOUDNESS_MIN, LOUDNESS_MAX, features.loudness.total);
     audio.perceptualSharpness = perceptualSharpness;
     audio.perceptualSpread = perceptualSpread;
     audio.spectralFlatness = spectralFlatness;
 
-    bloomPass.strength = lerp(1, 1.25, audio.loudness);
-    bloomPass.radius = lerp(1, 3, perceptualSharpness);
+    bloomPass.strength = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, audio.loudness);
+    bloomPass.radius = lerp(BLOOM_RADIUS_MIN, BLOOM_RADIUS_MAX, perceptualSharpness);
 
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
@@ -307,10 +358,10 @@ export default class App {
           params.xscale + params.xscale * Math.log10(j / ffts[i].length);
         // y -> magnitude
         position.array[index + 1] =
-          -15 +
+          FFT_Y_OFFSET +
           audio.perceptualSharpness +
           ffts[i][j] * (params.amount * audio.loudness);
-        position.array[index + 2] = +15 - i * (5 * audio.perceptualSpread);
+        position.array[index + 2] = FFT_Z_BASE - i * (FFT_Z_STEP_MULTIPLIER * audio.perceptualSpread);
       }
       position.needsUpdate = true;
     }
@@ -319,19 +370,19 @@ export default class App {
     const signal = audioFeaturesExtractor.signal();
 
     if (!!signal && iSignalMesh) {
-      for (let i = 0; i < fftSize; i++) {
-        iDummy.position.set((15 * i) / fftSize, signal[i] * 30, 0);
+      for (let i = 0; i < FFT_SIZE; i++) {
+        iDummy.position.set((SIGNAL_X_SCALE * i) / FFT_SIZE, signal[i] * SIGNAL_SCALE, 0);
 
         iDummy.rotation.set(
-          (timestamp + audio.loudness) * 1e-3,
+          (timestamp + audio.loudness) * SIGNAL_ROTATION_SCALE,
           0,
           audio.loudness
         );
 
         iDummy.scale.set(
-          audio.loudness * 0.5,
-          audio.perceptualSharpness * 0.5,
-          audio.perceptualSharpness * 0.5
+          audio.loudness * SIGNAL_SCALE_MULTIPLIER,
+          audio.perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
+          audio.perceptualSharpness * SIGNAL_SCALE_MULTIPLIER
         );
         iDummy.updateMatrix();
         iColor.set(signalPalette[i]);
@@ -349,6 +400,17 @@ export default class App {
     stats.update();
   }
 
+  /**
+   * Main application entry point using RxJS observables
+   * 
+   * @returns {Subscription} RxJS subscription for the application flow
+   * 
+   * Orchestrates:
+   * 1. Initial cover animation
+   * 2. User button click + audio initialization
+   * 3. Scene initialization and intro animation
+   * 4. Continuous render loop with pause functionality
+   */
   run$() {
     // Start GSAP animation for cover element
     gsap.timeline().to("#cover", {
@@ -361,18 +423,36 @@ export default class App {
     return concat(
       combineLatest([
         buttonStart$(btn),
-        from(audioFeaturesExtractor.meydaPromise({ fftSize })),
+        from(audioFeaturesExtractor.meydaPromise({ fftSize: FFT_SIZE })),
       ]).pipe(
+        retry({
+          count: 2,
+          delay: 1000
+        }),
         tap(() => {
           this.init();
           this.intro();
         }),
         catchError((error) => {
           console.error("Error during initialization:", error);
+          
+          // Show user-friendly error message
+          const errorMsg = this.getErrorMessage(error);
+          this.showError(errorMsg);
+          
+          // Return empty observable to gracefully terminate
+          return EMPTY;
         })
       ),
       // Render with pause functionality
-      renderWithPause$(pauseKey$(32)).pipe(tap(this.render))
+      renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
+        tap(this.render),
+        catchError((error) => {
+          console.error("Error during render:", error);
+          // Continue rendering even if one frame fails
+          return EMPTY;
+        })
+      )
     ).subscribe();
   }
 }
