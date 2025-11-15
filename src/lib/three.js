@@ -1,11 +1,11 @@
-export * from "../shaders/materials/line"
+export * from "../shaders/materials/line";
 
-export const dpr = Math.min(1.25, window.devicePixelRatio || 1);
+export const dpr = Math.min(1.2, window.devicePixelRatio);
 
-export function needsResize({renderer, composer}) {
+export function needsResize({ renderer, composer }) {
   const canvas = renderer.domElement;
-  const w = canvas.clientWidth  * dpr | 0;
-  const h = canvas.clientHeight * dpr | 0;
+  const w = (canvas.clientWidth * dpr) | 0;
+  const h = (canvas.clientHeight * dpr) | 0;
   const needResize = canvas.width !== w || canvas.height !== h;
   if (needResize) {
     renderer.setSize(w, h, false);

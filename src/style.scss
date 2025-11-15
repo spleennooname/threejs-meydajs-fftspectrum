@@ -18,7 +18,7 @@ body {
   -ms-user-select: none;
   user-select: none;
 
-  font-family: 'Arial', sans-serif;
+  font-family: "Arial", sans-serif;
   font-weight: bold;
   text-transform: uppercase;
 
@@ -94,7 +94,7 @@ body {
 }
 
 .f {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-weight: bold;
   text-transform: uppercase;
   font-size: 10px;
@@ -122,8 +122,8 @@ body {
 #stats {
   position: fixed;
   bottom: 0;
-  z-index: 666; 
-  > div{
-    position: relative!important;
+  z-index: 666;
+  > div {
+    position: relative !important;
   }
 }

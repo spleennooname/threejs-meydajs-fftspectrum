@@ -10,7 +10,7 @@
 
 ```
 
-![threejs r141](https://img.shields.io/badge/three-v133-green) ![meyda v5.4.0](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.5.5](https://img.shields.io/badge/rxjs-v7.0-green)
+![threejs r141](https://img.shields.io/badge/three-v133-green) ![meyda v5.4.0](https://img.shields.io/badge/meyda-v5.2.2-green) ![rxjs 7.5.5](https://img.shields.io/badge/rxjs-v7.0-green) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-21.7.3-green) ![npm](https://img.shields.io/badge/npm-8.19.4-blue) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
@@ -61,4 +61,42 @@ npm run build
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the details below.
+
+### MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+**THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.**
+
+### What this means
+
+✅ **You can:**
+- Use this code in personal and commercial projects
+- Modify and distribute the code
+- Use it as part of a larger project
+- Sell software that includes this code
+
+❗ **You must:**
+- Include the original copyright notice
+- Include the MIT license text
+
+🚫 **You cannot:**
+- Hold the author liable for damages
+- Use the author's name to promote derived products without permission
+
+Copyright (c) 2025 Andrea Bovo
