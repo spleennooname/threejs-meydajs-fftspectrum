@@ -1,6 +1,6 @@
 {
   "name": "fft-spectrum",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "author": "Andrea Bovo <https://github.com/spleennooname>",
   "description": "audio reactive experiment with ThreeJS and Meyda",
