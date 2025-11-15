@@ -34,6 +34,7 @@ import {
   BoxGeometry,
   BufferAttribute,
   InstancedMesh,
+  Vector2,
   DynamicDrawUsage,
   DoubleSide,
   RawShaderMaterial,
@@ -183,10 +184,12 @@ function init() {
     alpha: true,
     powerPreference: "high-performance",
   });
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.NoToneMapping;
   renderer.setPixelRatio(dpr);
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  
+  // Correct size initialization for postprocessing
+  const w = canvas.clientWidth * dpr;
+  const h = canvas.clientHeight * dpr;
+  renderer.setSize(w, h, false);
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
@@ -205,9 +208,13 @@ function init() {
 
   scene.add(directionalLight);
 
-  // Setup postprocessing pipeline
+  // Setup postprocessing pipeline with correct sizing
   composer = new EffectComposer(renderer);
+  composer.setSize(w, h);
 
+  // Create render pass first
+  const renderPass = new RenderPass(scene, camera);
+  
   // Create bloom effect with better performance
   bloomEffect = new BloomEffect({
     intensity: 3.0,
@@ -216,10 +223,10 @@ function init() {
     mipmapBlur: false,
   });
   
-  const renderPass = new RenderPass(scene, camera);
+  const effectPass = new EffectPass(camera, bloomEffect);
 
   composer.addPass(renderPass);
-  composer.addPass(new EffectPass(camera, bloomEffect));
+  composer.addPass(effectPass);
 
   // Unchanging variables
   //const length = 1;
@@ -324,6 +331,8 @@ function render([{ timestamp }]) {
     const canvas = renderer.domElement;
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
     camera.updateProjectionMatrix();
+
+    composer.setSize(canvas.clientWidth, canvas.clientHeight)
   }
 
   const audioFeatures = features([
