@@ -12,19 +12,19 @@ export default defineConfig(({ command, mode }) => {
       esbuildCommonjs(["colormap"])
     ],
     build: {
-      // cssCodeSplit: true,
-      minify: "esbuild",
+      minify: "terser",
       chunkSizeWarningLimit:1000,
       rollupOptions:{
         input: {
           index  : "./index.html",
         },
-        /* output:{
+        output:{
           manualChunks: {
             three: [ "three" ],
-            meyda: [ "meyda" ]
+            meyda: [ "meyda" ],
+            rxjs: [ "rxjs" ]
           }
-        } */
+        }
       }
     }
   }

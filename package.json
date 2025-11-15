@@ -12,33 +12,29 @@
     "lint": "npx eslint --color src/index.js",
     "lint:fix": "npx eslint --fix --color src/index.js",
     "lint:watch": "npx esw -w --fix --color src/index.js",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "dev": "concurrently \"npm:lint:watch\" \"npm:vite\""
   },
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "^1.0.3",
     "concurrently": "^7.2.1",
-    "cross-env": "^7.0.3",
     "eslint": "^8.16.0",
     "eslint-watch": "^8.0.0",
+    "prettier": "^3.6.2",
     "sass": "^1.52.1",
-    "vite": "^2.9.9",
-    "vite-plugin-eslint": "^1.6.1"
+    "vite": "^2.9.9"
   },
   "browserslist": [
     "> 0.25%, not ie 11, not op_mini all"
   ],
   "dependencies": {
     "colormap": "^2.3.2",
-    "dat.gui": "^0.7.9",
-    "detect-gpu": "^4.0.24",
     "gsap": "^3.10.4",
-    "javascript-obfuscator": "^4.0.0",
     "meyda": "^5.6.3",
-    "raf-polyfill": "^1.0.0",
     "rxjs": "^7.5.5",
     "stats.js": "^0.17.0",
-    "three": "^0.150.0",
-    "three-instanced-uniforms-mesh": "^0.46.0",
+    "three": "^0.150.1",
     "tweakpane": "^3.0.8"
   },
   "volta": {

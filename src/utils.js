@@ -1,28 +1,25 @@
-
-import colormap from "colormap"
+import colormap from "colormap";
 
 export const getFFTs = (number, pointCount) => {
-    let ffts = [];
-    for (let i = 0; i < number; i++) {
-        ffts.push(
-            Array(pointCount).fill(0)
-        );
-    }
-    return ffts;
+  let ffts = [];
+  for (let i = 0; i < number; i++) {
+    ffts.push(Array(pointCount).fill(0));
+  }
+  return ffts;
 };
 
 export const getPalette = (name, num) => {
-    return colormap({
-        colormap: name,
-        nshades: num,
-        format: "float",
-        alpha: 1
-    })
-}
+  return colormap({
+    colormap: name,
+    nshades: num,
+    format: "float",
+    alpha: 1,
+  });
+};
 
 //https://www.trysmudford.com/blog/linear-interpolation-functions/
 
-// interpolazione lineare 
+// interpolazione lineare
 // a 0..1
 // x 0..n
 // y 0..n

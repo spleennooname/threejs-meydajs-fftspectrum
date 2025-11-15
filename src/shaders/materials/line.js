@@ -1,4 +1,3 @@
-
 export const vs = `
     precision mediump float;
     precision mediump int;
@@ -21,7 +20,7 @@ export const vs = `
   
       vColor = uColor;
     }
-  `
+  `;
 export const fs = `
     precision mediump float;
   
@@ -30,4 +29,4 @@ export const fs = `
     void main(){
       gl_FragColor = vColor;
     }
-  `
+  `;

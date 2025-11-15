@@ -1,47 +1,43 @@
-
 import * as Meyda from "meyda";
 
-navigator.getUserMedia = navigator.webkitGetUserMedia ||
+navigator.getUserMedia =
+  navigator.webkitGetUserMedia ||
   navigator.getUserMedia ||
-  navigator.mediaDevices.getUserMedia
+  navigator.mediaDevices.getUserMedia;
 
 export const AUDIO_CONSTRAINS = {
   audio: {
     channelCount: {
       ideal: 2,
-      min: 1
+      min: 1,
     },
     echoCancellation: true,
     autoGainControl: true,
-    noiseSuppression: true
-  } 
-}
+    noiseSuppression: true,
+  },
+};
 
 export const VIDEO_CONSTRAINS = {
-  video: { facingMode: "user" } 
-}
+  video: { facingMode: "user" },
+};
 export class AudioFeaturesExtractor {
-
-  meydaPromise({constrains = AUDIO_CONSTRAINS, bufferSize = 512}) {
-    return navigator
-      .mediaDevices
+  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = 512 }) {
+    return navigator.mediaDevices
       .getUserMedia(constrains)
-      .then(stream => this.successStream({stream, bufferSize}))
-      .catch(err => this.errorStream(err)
-    )
+      .then((stream) => this.successStream({ stream, bufferSize }))
+      .catch((err) => this.errorStream(err));
   }
 
-  successStream({stream, bufferSize}) {
+  successStream({ stream, bufferSize }) {
+    this.audioContext = new AudioContext();
 
-    this.audioContext = new AudioContext()
-
-    const audioTrack = stream.getAudioTracks()[0]
+    const audioTrack = stream.getAudioTracks()[0];
 
     if (audioTrack) {
-      this.streamAudioSettings = audioTrack.getSettings()
+      this.streamAudioSettings = audioTrack.getSettings();
     }
- 
-    this.source = this.audioContext.createMediaStreamSource(stream)
+
+    this.source = this.audioContext.createMediaStreamSource(stream);
     this.meyda = Meyda.createMeydaAnalyzer({
       audioContext: this.audioContext,
       source: this.source,
@@ -53,30 +49,32 @@ export class AudioFeaturesExtractor {
       bufferSize,
       //windowingFunction: "blackman"
     });
-    this.meyda.start()
-    return stream
+    this.meyda.start();
+    return stream;
   }
 
   errorStream(stream) {
-    console.error("AudioFeaturesExtractor", stream)
+    console.error("AudioFeaturesExtractor", stream);
   }
 
-  features(audioFeatures = [
-    "amplitudeSpectrum",
-    "spectralCentroid",
-    "spectralRolloff",
-    "perceptualSharpness",
-    "loudness",
-    "rms",
-    "chroma",
-    "mfcc",
-  ]) {
-    if( !this.meyda || !this.audioContext ) return null
-    return this.meyda.get(audioFeatures)
+  features(
+    audioFeatures = [
+      "amplitudeSpectrum",
+      "spectralCentroid",
+      "spectralRolloff",
+      "perceptualSharpness",
+      "loudness",
+      "rms",
+      "chroma",
+      "mfcc",
+    ]
+  ) {
+    if (!this.meyda || !this.audioContext) return null;
+    return this.meyda.get(audioFeatures);
   }
 
   signal() {
-    if( !this.meyda) return null
+    if (!this.meyda) return null;
     return this.meyda._m.signal;
   }
 }
