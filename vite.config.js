@@ -14,6 +14,10 @@ export default defineConfig(({ command, mode }) => {
     optimizeDeps: {
       include: ["three", "postprocessing", "rxjs", "meyda", "gsap", "tweakpane"]
     },
+    define: {
+      // Ensure postprocessing compatibility in production
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development')
+    },
     build: {
       minify: "esbuild",
       chunkSizeWarningLimit: 1000,

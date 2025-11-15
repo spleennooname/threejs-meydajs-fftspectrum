@@ -93,7 +93,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette;
 
-let renderer, camera, composer, bloomEffect, controls, iSignalMesh, fftMeshes, iDummy, iColor;
+let renderer, camera, scene, composer, bloomEffect, controls, iSignalMesh, fftMeshes, iDummy, iColor;
 
 const params = {
   amount: 10,
@@ -164,7 +164,7 @@ function init() {
   iDummy = new Object3D();
   iColor = new Color();
 
-  const scene = new Scene();
+  scene = new Scene();
 
   camera = new PerspectiveCamera(75, 4 / 3, 5, 1e4);
   camera.position.set(0, -5, 10);
@@ -200,14 +200,20 @@ function init() {
 
   scene.add(directionalLight);
 
-  // Setup postprocessing pipeline with correct sizing
-  composer = new EffectComposer(renderer);
+  // Setup postprocessing pipeline with compatibility fix
+  composer = new EffectComposer(renderer, {
+    frameBufferType: undefined, // Let postprocessing auto-detect
+    multisampling: 0
+  });
+  
+  // Ensure composer has correct size before adding passes
   composer.setSize(w, h);
 
   // Create render pass first
   const renderPass = new RenderPass(scene, camera);
+  renderPass.clear = true;
   
-  // Create bloom effect with better performance
+  // Create bloom effect with production-safe settings
   bloomEffect = new BloomEffect({
     intensity: 3.0,
     luminanceThreshold: 0.0,
@@ -216,6 +222,7 @@ function init() {
   });
   
   const effectPass = new EffectPass(camera, bloomEffect);
+  effectPass.renderToScreen = true;
 
   composer.addPass(renderPass);
   composer.addPass(effectPass);
@@ -442,7 +449,13 @@ function render([{ timestamp }]) {
 
   controls.update();
 
-  composer.render();
+  // Safe render with fallback
+  try {
+    composer.render();
+  } catch (error) {
+    console.warn("EffectComposer error, falling back to direct render:", error);
+    renderer.render(scene, camera);
+  }
 
   stats.update();
 }
