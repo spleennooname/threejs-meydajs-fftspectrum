@@ -462,8 +462,8 @@ function run() {
     takeUntil(destroy$), // Cleanup automatico
     tap(() => init()), // Inizializza ThreeJS scene, camera, renderer
     finalize(() => intro()), // Nasconde il cover overlay
-    retry({ count: 3, delay: 1000 }), // Retry automatico su errori (es. permessi negati)
-    catchError(error => {
+    //retry({ count: 3, delay: 1000 }), // Retry automatico su errori (es. permessi negati)
+    /*catchError(error => {
       console.error("Error during initialization:", error);
       // Mostra messaggio di errore user-friendly e permette retry
       gsap.to("#cover", {
@@ -476,20 +476,20 @@ function run() {
       });
       return EMPTY; // Termina lo stream su errore irrecuperabile
     }),
-    shareReplay(1) // Cache il risultato per evitare re-inizializzazioni
+    shareReplay(1) // Cache il risultato per evitare re-inizializzazioni*/
   );
 
   // Stream di rendering: gestisce il loop di animazione
   const render$ = renderWithPause$(pauseKey$(32)).pipe(
     takeUntil(destroy$), // Cleanup automatico
     tap(render), // Esegue il rendering della scena
-    catchError(() => {
+   /*  catchError(() => {
       // Recovery automatico dal rendering con breve delay
       return timer(100).pipe(
         takeUntil(destroy$),
         switchMap(() => renderWithPause$(pauseKey$(32)))
       );
-    })
+    }) */
   );
 
   // Concatena gli stream: prima inizializzazione, poi rendering continuo
