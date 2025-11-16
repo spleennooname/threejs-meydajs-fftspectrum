@@ -1,12 +1,5 @@
 import colormap from "colormap";
 
-export const getFFTs = (number, pointCount) => {
-  let ffts = [];
-  for (let i = 0; i < number; i++) {
-    ffts.push(Array(pointCount).fill(0));
-  }
-  return ffts;
-};
 
 export const getPalette = (name, num) => {
   return colormap({

@@ -1,4 +1,5 @@
 import * as Meyda from "meyda";
+import { FFT_SIZE } from "./audio";
 
 // Modern browsers only - removed deprecated getUserMedia polyfill
 
@@ -14,9 +15,6 @@ export const AUDIO_CONSTRAINS = {
   },
 };
 
-export const VIDEO_CONSTRAINS = {
-  video: { facingMode: "user" },
-};
 /**
  * Audio Features Extractor class using MeydaJS
  * 
@@ -34,12 +32,12 @@ export class AudioFeaturesExtractor {
    * @param {number} options.bufferSize - Meyda buffer size for feature extraction
    * @returns {Promise<MediaStream>} Promise resolving to audio stream
    */
-  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = 512 }) {
+  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = FFT_SIZE }) {
     // Check for modern MediaDevices API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(
         new Error(
-          'getUserMedia is not supported in this browser. Please use a modern browser with Web Audio API support.'
+          "getUserMedia is not supported in this browser. Please use a modern browser with Web Audio API support."
         )
       );
     }
@@ -87,11 +85,11 @@ export class AudioFeaturesExtractor {
    * @param {Error} error - Error object from getUserMedia or audio processing
    */
   errorStream(error) {
-    if (error.name === 'NotAllowedError') {
+    if (error.name === "NotAllowedError") {
       console.error("AudioFeaturesExtractor: Microphone access denied by user");
-    } else if (error.name === 'NotFoundError') {
+    } else if (error.name === "NotFoundError") {
       console.error("AudioFeaturesExtractor: No microphone device found");
-    } else if (error.name === 'NotSupportedError') {
+    } else if (error.name === "NotSupportedError") {
       console.error("AudioFeaturesExtractor: getUserMedia not supported in this browser");
     } else {
       console.error("AudioFeaturesExtractor:", error.message || error);

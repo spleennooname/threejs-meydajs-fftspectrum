@@ -4,7 +4,7 @@ import Stats from "stats.js";
 
 import { Pane } from "tweakpane";
 
-import { tap, concat, from, finalize, catchError, combineLatest, retry, EMPTY } from "rxjs";
+import { tap, concat, from, catchError, combineLatest, retry, EMPTY } from "rxjs";
 
 import {
   Scene,
@@ -31,18 +31,16 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-import { getFFTs, getPalette, invlerp, lerp } from "./utils";
+import { getPalette, lerp } from "./utils";
 
 import { fs, vs } from "./shaders/materials/line";
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
-import { pauseKey$, buttonStart$, renderWithPause$ } from "./lib/rx";
-import { dpr, needsResize } from "./lib/three";
+import { pauseKey$, buttonStart$, renderWithPause$ } from "./utils/rx";
+import { dpr, needsResize } from "./utils/three";
+import { FFT_SIZE, NUM_FFT_LINES, FFT_Y_OFFSET, FFT_Z_BASE, FFT_Z_STEP_MULTIPLIER, getFFTs, processAudioFeatures } from "./audio";
 
-// Audio configuration constants
-const FFT_SIZE = 512;
-const NUM_FFT_LINES = 50;
 const SPACEBAR_KEY_CODE = 32;
 
 // Camera configuration constants
@@ -75,10 +73,6 @@ const BLOOM_RADIUS_BASE = 1.5;
 const BLOOM_RADIUS_MIN = 1;
 const BLOOM_RADIUS_MAX = 3;
 
-// FFT visualization constants
-const FFT_Y_OFFSET = -15;
-const FFT_Z_BASE = 15;
-const FFT_Z_STEP_MULTIPLIER = 5;
 
 // Signal visualization constants
 const SIGNAL_SCALE = 30;
@@ -87,9 +81,6 @@ const SIGNAL_ROTATION_SCALE = 1e-3;
 const SIGNAL_SCALE_MULTIPLIER = 0.5;
 const SIGNAL_POSITION_X = -8;
 
-// Audio processing constants
-const LOUDNESS_MIN = 3;
-const LOUDNESS_MAX = 50;
 
 // Color palette
 const COLOR_PALETTE = "picnic";
@@ -248,12 +239,14 @@ export default class App {
     fftMeshes = new Group();
     for (let i = 0; i < ffts.length; i++) {
       if (ffts[i]) {
+        
         const fftGeom = new BufferGeometry();
         fftGeom.setAttribute(
           "position",
           new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
         );
         fftGeom.setDrawRange(0, ffts[i].length);
+
         const fftMat = new RawShaderMaterial({
           uniforms: {
             uColor: {
@@ -265,15 +258,15 @@ export default class App {
           transparent: true,
           side: DoubleSide,
         });
+        
         const mesh = new Mesh(fftGeom, fftMat);
         mesh.frustumCulled = false;
+
         fftMeshes.add(mesh);
       }
     }
 
     scene.add(fftMeshes);
-
-    console.log("init");
   }
 
   /**
@@ -312,14 +305,15 @@ export default class App {
    * - Post-processing effects adjustment based on audio features
    */
   render([{ timestamp }]) {
+    
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
-      const canvas = renderer.domElement;
-      camera.aspect = canvas.clientWidth / canvas.clientHeight;
+
+      const { clientWidth, clientHeight} = renderer.domElement;
+
+      camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
     }
-
-    if (!audioFeaturesExtractor) return;
 
     const features = audioFeaturesExtractor.features([
       "perceptualSharpness",
@@ -331,19 +325,18 @@ export default class App {
 
     if (!features) return;
 
+    const { amplitudeSpectrum } = features;
+
     // fill ffts spectrum buffers
     ffts.pop();
-    ffts.unshift(features.amplitudeSpectrum);
+    ffts.unshift(amplitudeSpectrum);
 
-    const { perceptualSpread, perceptualSharpness, spectralFlatness } =
-      features;
+    // Process audio features
+    Object.assign(audio, processAudioFeatures(features));
 
-    audio.loudness = invlerp(LOUDNESS_MIN, LOUDNESS_MAX, features.loudness.total);
-    audio.perceptualSharpness = perceptualSharpness;
-    audio.perceptualSpread = perceptualSpread;
-    audio.spectralFlatness = spectralFlatness;
+    const { loudness, perceptualSharpness, perceptualSpread } = audio;
 
-    bloomPass.strength = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, audio.loudness);
+    bloomPass.strength = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
     bloomPass.radius = lerp(BLOOM_RADIUS_MIN, BLOOM_RADIUS_MAX, perceptualSharpness);
 
     // render ffts
@@ -353,6 +346,12 @@ export default class App {
       for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
         // x -> frequency bins
+        // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
+        // - Human hearing is logarithmic: we perceive frequency ratios, not differences
+        // - Octaves (2:1 ratio) sound equally spaced regardless of absolute frequency
+        // - Standard in audio: piano keys, musical scales, EQ bands, spectrum analyzers
+        // - Linear FFT bins would compress low frequencies into tiny visual space
+        // - Log scale gives bass/mids/treble proportional visual representation
         // https://www.desmos.com/calculator/ss4rcedsl4
         position.array[index + 0] =
           params.xscale + params.xscale * Math.log10(j / ffts[i].length);
@@ -360,9 +359,10 @@ export default class App {
         position.array[index + 1] =
           FFT_Y_OFFSET +
           audio.perceptualSharpness +
-          ffts[i][j] * (params.amount * audio.loudness);
-        position.array[index + 2] = FFT_Z_BASE - i * (FFT_Z_STEP_MULTIPLIER * audio.perceptualSpread);
+          ffts[i][j] * (params.amount * loudness);
+        position.array[index + 2] = FFT_Z_BASE - i * (FFT_Z_STEP_MULTIPLIER * perceptualSpread);
       }
+
       position.needsUpdate = true;
     }
 
@@ -374,17 +374,18 @@ export default class App {
         iDummy.position.set((SIGNAL_X_SCALE * i) / FFT_SIZE, signal[i] * SIGNAL_SCALE, 0);
 
         iDummy.rotation.set(
-          (timestamp + audio.loudness) * SIGNAL_ROTATION_SCALE,
+          (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           0,
-          audio.loudness
+          loudness
         );
 
         iDummy.scale.set(
-          audio.loudness * SIGNAL_SCALE_MULTIPLIER,
-          audio.perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
-          audio.perceptualSharpness * SIGNAL_SCALE_MULTIPLIER
+          loudness * SIGNAL_SCALE_MULTIPLIER,
+          perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
+          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
         );
         iDummy.updateMatrix();
+
         iColor.set(signalPalette[i]);
 
         iSignalMesh.setColorAt(i, iColor);
@@ -432,27 +433,23 @@ export default class App {
         tap(() => {
           this.init();
           this.intro();
-        }),
-        catchError((error) => {
-          console.error("Error during initialization:", error);
-          
-          // Show user-friendly error message
-          const errorMsg = this.getErrorMessage(error);
-          this.showError(errorMsg);
-          
-          // Return empty observable to gracefully terminate
-          return EMPTY;
         })
       ),
       // Render with pause functionality
       renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
-        tap(this.render),
-        catchError((error) => {
-          console.error("Error during render:", error);
-          // Continue rendering even if one frame fails
-          return EMPTY;
-        })
+        tap(this.render)
       )
+    ).pipe(
+      catchError((error) => {
+        console.error("Error in app flow:", error);
+        
+        // Show user-friendly error message
+        const errorMsg = this.getErrorMessage(error);
+        this.showError(errorMsg);
+        
+        // Return empty observable to gracefully terminate
+        return EMPTY;
+      })
     ).subscribe();
   }
 }

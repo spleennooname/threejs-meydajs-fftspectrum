@@ -1,4 +1,6 @@
 import App from "./App";
 
-const demo = new App();
-demo.run$();
+document.addEventListener("DOMContentLoaded", () => {
+  const demo = new App();
+  demo.run$();
+});
