@@ -10,7 +10,7 @@
 
 ```
 
-![version](https://img.shields.io/badge/version-1.1.0-blue) ![threejs](https://img.shields.io/badge/three.js-0.181.2-green) ![meyda](https://img.shields.io/badge/meyda-v5.6.3-green) ![rxjs](https://img.shields.io/badge/rxjs-v7.5.5-green) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-21.7.3-green) ![npm](https://img.shields.io/badge/npm-8.19.4-blue) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
+![version](https://img.shields.io/badge/version-1.1.0-blue) ![threejs](https://img.shields.io/badge/three.js-0.155.0-green) ![meyda](https://img.shields.io/badge/meyda-v5.6.3-green) ![rxjs](https://img.shields.io/badge/rxjs-v7.5.5-green) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-21.7.3-green) ![npm](https://img.shields.io/badge/npm-8.19.4-blue) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
