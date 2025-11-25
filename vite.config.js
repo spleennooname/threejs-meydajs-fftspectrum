@@ -1,6 +1,6 @@
 // vite.config.js
 
-import { defineConfig} from "vite"
+import { defineConfig } from "vite"
 import { esbuildCommonjs } from "@originjs/vite-plugin-commonjs"
 
 export default defineConfig(({ command, mode }) => {
@@ -13,16 +13,20 @@ export default defineConfig(({ command, mode }) => {
     ],
     build: {
       minify: "terser",
-      chunkSizeWarningLimit:1000,
-      rollupOptions:{
-        input: {
-          index  : "./index.html",
+      chunkSizeWarningLimit: 1000,
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
         },
-        output:{
+      },
+      rollupOptions: {
+        input: {
+          index: "./index.html",
+        },
+        output: {
           manualChunks: {
-            three: [ "three" ],
-            meyda: [ "meyda" ],
-            rxjs: [ "rxjs" ]
+            vendor: ["three","meyda", "rxjs"],
           }
         }
       }
