@@ -8,7 +8,6 @@ import { tap, concat, from, catchError, combineLatest, retry, EMPTY } from "rxjs
 
 import {
   Scene,
-  PerspectiveCamera,
   WebGLRenderer,
   DirectionalLight,
   Group,
@@ -40,23 +39,15 @@ import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./utils/rx";
 import { dpr, needsResize } from "./utils/three";
 import { FFT_SIZE, NUM_FFT_LINES, FFT_Y_OFFSET, FFT_Z_BASE, FFT_Z_STEP_MULTIPLIER, getFFTs, processAudioFeatures } from "./audio";
+import { createCamera, createOrbitControls } from "./render";
 
 const SPACEBAR_KEY_CODE = 32;
 
 // Camera configuration constants
-const CAMERA_FOV = 75;
-const CAMERA_ASPECT = 4 / 3;
-const CAMERA_NEAR = 5;
-const CAMERA_FAR = 1e4;
+
 const CAMERA_POSITION_Y = -5;
 const CAMERA_POSITION_Z = 10;
 
-// Controls configuration constants
-const CONTROLS_MAX_DISTANCE = 25;
-const CONTROLS_MIN_DISTANCE = 7;
-const CONTROLS_DAMPING_FACTOR = 5e-2;
-const CONTROLS_MIN_POLAR_ANGLE = 1;
-const CONTROLS_MAX_POLAR_ANGLE = Math.PI / 2;
 
 // Light configuration constants
 const LIGHT_COLOR = 0xffffff;
@@ -72,7 +63,6 @@ const BLOOM_STRENGTH_MAX = 1.25;
 const BLOOM_RADIUS_BASE = 1.5;
 const BLOOM_RADIUS_MIN = 1;
 const BLOOM_RADIUS_MAX = 3;
-
 
 // Signal visualization constants
 const SIGNAL_SCALE = 30;
@@ -96,10 +86,10 @@ document.querySelector("#stats").appendChild(stats.dom);
 let ffts, signalPalette;
 
 let renderer, camera, composer, bloomPass, controls;
-let iSignalMesh, fftMeshes, iDummy, iColor;
+let iSignalMesh, fftMeshes, iSignalDummy, iSignalColor;
 
 const params = {
-  amount: 10,
+  amount: 4,
   xscale: 50,
 };
 
@@ -115,7 +105,7 @@ const gui = new Pane({
   expanded: true,
 });
 
-gui.addInput(params, "amount", { min: 1, max: 50 });
+gui.addInput(params, "amount", { min: 1, max: 6 });
 gui.addInput(params, "xscale", { min: 20, max: 100 });
 
 gui.addMonitor(audio, "loudness", {
@@ -149,24 +139,11 @@ gui.addMonitor(audio, "spectralFlatness", {
  * - Handles user interaction and RxJS reactive streams
  */
 export default class App {
-  /**
-   * Initializes the ThreeJS scene and all visual components
-   * 
-   * Sets up:
-   * - Camera, renderer, and lighting
-   * - OrbitControls for user interaction
-   * - Post-processing effects (UnrealBloomPass)
-   * - FFT spectrum visualization meshes
-   * - InstancedMesh for time-domain signal visualization
-   */
-  init() {
-    // for instancedmesh computation
-    iDummy = new Object3D();
-    iColor = new Color();
 
+  init() {
     const scene = new Scene();
 
-    camera = new PerspectiveCamera(CAMERA_FOV, CAMERA_ASPECT, CAMERA_NEAR, CAMERA_FAR);
+    camera = createCamera();
     camera.position.set(0, CAMERA_POSITION_Y, CAMERA_POSITION_Z);
     camera.lookAt(0, 0, 0);
 
@@ -178,16 +155,7 @@ export default class App {
     });
     renderer.setPixelRatio(dpr);
 
-    controls = new OrbitControls(camera, canvas);
-    controls.enableDamping = true;
-    controls.enablePan = false;
-    controls.maxDistance = CONTROLS_MAX_DISTANCE;
-    controls.minDistance = CONTROLS_MIN_DISTANCE;
-    controls.dampingFactor = CONTROLS_DAMPING_FACTOR;
-    controls.minAzimuthAngle = -Math.PI;
-    controls.maxAzimuthAngle = Math.PI;
-    controls.minPolarAngle = CONTROLS_MIN_POLAR_ANGLE;
-    controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE;
+    controls = createOrbitControls(camera, canvas);
     controls.update();
 
     const directionalLight = new DirectionalLight(LIGHT_COLOR, LIGHT_INTENSITY);
@@ -210,10 +178,11 @@ export default class App {
     composer.addPass(renderPass);
     composer.addPass(bloomPass);
 
-
     ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
     // 1. INSTANCED MESH for signal
+    iSignalDummy = new Object3D();
+    iSignalColor = new Color();
     iSignalMesh = new InstancedMesh(
       new BoxGeometry(1.0),
       new MeshLambertMaterial({ color: LIGHT_COLOR }),
@@ -333,7 +302,6 @@ export default class App {
 
     // Process audio features
     Object.assign(audio, processAudioFeatures(features));
-
     const { loudness, perceptualSharpness, perceptualSpread } = audio;
 
     bloomPass.strength = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
@@ -342,7 +310,6 @@ export default class App {
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
       const position = fftMeshes.children[i].geometry.getAttribute("position");
-
       for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
         // x -> frequency bins
@@ -370,32 +337,36 @@ export default class App {
     const signal = audioFeaturesExtractor.signal();
 
     if (!!signal && iSignalMesh) {
-      for (let i = 0; i < FFT_SIZE; i++) {
-        iDummy.position.set((SIGNAL_X_SCALE * i) / FFT_SIZE, signal[i] * SIGNAL_SCALE, 0);
 
-        iDummy.rotation.set(
+      for (let i = 0; i < FFT_SIZE; i++) {
+        iSignalDummy.position.set((SIGNAL_X_SCALE * i) / FFT_SIZE, signal[i] * SIGNAL_SCALE, 0);
+
+        iSignalDummy.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           0,
           loudness
         );
 
-        iDummy.scale.set(
+        iSignalDummy.scale.set(
           loudness * SIGNAL_SCALE_MULTIPLIER,
           perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
           perceptualSpread * SIGNAL_SCALE_MULTIPLIER
         );
-        iDummy.updateMatrix();
 
-        iColor.set(signalPalette[i]);
+        iSignalDummy.updateMatrix();
 
-        iSignalMesh.setColorAt(i, iColor);
-        iSignalMesh.setMatrixAt(i, iDummy.matrix);
+        iSignalColor.set(signalPalette[i]);
+
+        iSignalMesh.setColorAt(i, iSignalColor);
+        iSignalMesh.setMatrixAt(i, iSignalDummy.matrix);
       }
+
       iSignalMesh.instanceMatrix.needsUpdate = true;
       iSignalMesh.instanceColor.needsUpdate = true;
     }
 
     controls.update();
+
     composer.render();
 
     stats.update();

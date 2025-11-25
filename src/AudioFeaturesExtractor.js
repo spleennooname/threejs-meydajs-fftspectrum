@@ -1,8 +1,6 @@
 import * as Meyda from "meyda";
 import { FFT_SIZE } from "./audio";
 
-// Modern browsers only - removed deprecated getUserMedia polyfill
-
 export const AUDIO_CONSTRAINS = {
   audio: {
     channelCount: {
