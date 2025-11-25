@@ -412,11 +412,11 @@ export default class App {
       )
     ).pipe(
       catchError((error) => {
-        console.error("Error in app flow:", error);
+        console.error("Error:", error);
         
         // Show user-friendly error message
-        const errorMsg = this.getErrorMessage(error);
-        this.showError(errorMsg);
+        /* const errorMsg = this.getErrorMessage(error);
+        this.showError(errorMsg */
         
         // Return empty observable to gracefully terminate
         return EMPTY;
