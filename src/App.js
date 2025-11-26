@@ -17,20 +17,21 @@ import {
 import {
   Scene,
   WebGLRenderer,
+  MeshStandardMaterial,
   DirectionalLight,
   Group,
+  Euler,
   Object3D,
   Mesh,
   Color,
   BufferGeometry,
   BoxGeometry,
   BufferAttribute,
-  InstancedMesh,
   DynamicDrawUsage,
-  DoubleSide,
-  RawShaderMaterial,
-  MeshLambertMaterial,
+  HemisphereLight,
 } from "three";
+
+import { InstancedMesh2 } from "@three.ez/instanced-mesh"
 
 import { EffectComposer, RenderPass, BloomEffect, EffectPass } from "postprocessing";
 
@@ -93,7 +94,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 let ffts, signalPalette;
 
 let renderer, camera, composer, bloomEffect, controls;
-let iSignalMesh, fftMeshes, iSignalDummy, iSignalColor;
+let iSignalMesh, fftMeshes;
 
 const params = {
   amount: 4,
@@ -164,9 +165,12 @@ export default class App {
     controls = createOrbitControls(camera, canvas);
     controls.update();
 
+    const hemiLight = new HemisphereLight(0xffffff, 0x000000, 1.)
+
     const directionalLight = new DirectionalLight(LIGHT_COLOR, LIGHT_INTENSITY);
     directionalLight.position.set(0, LIGHT_POSITION_Y, LIGHT_POSITION_Z);
 
+    this.scene.add(hemiLight);
     this.scene.add(directionalLight);
 
     const renderPass = new RenderPass(this.scene, camera);
@@ -185,27 +189,29 @@ export default class App {
 
     ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
-    // 1. INSTANCED MESH for signal
-    iSignalDummy = new Object3D();
-    iSignalColor = new Color();
-    iSignalMesh = new InstancedMesh(
-      new BoxGeometry(1.0),
-      new MeshLambertMaterial({ color: LIGHT_COLOR }),
-      FFT_SIZE
-    );
-    iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
-    iSignalMesh.scale.set(1, 1, 1);
-
-    // get meshes color
     // check https://github.com/bpostlethwaite/colormap
     let colors = getPalette(COLOR_PALETTE, ffts.length);
 
-    signalPalette = getPalette(COLOR_PALETTE, FFT_SIZE).map((a) =>
+    signalPalette = getPalette('inferno', FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
-    signalPalette.forEach((c, i) => iSignalMesh.setColorAt(i, c));
+    // 1. INSTANCED MESH for signal
+ 
+    iSignalMesh = new InstancedMesh2(
+      new BoxGeometry(0.25, 0.25, 0.25),
+      new MeshStandardMaterial({ color: LIGHT_COLOR }),
+      { capacity: FFT_SIZE, createEntities: true}
+    );
+    iSignalMesh.computeBVH();
+    iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
+    iSignalMesh.scale.set(1, 0.5, 1);
+    iSignalMesh.addInstances(FFT_SIZE, (obj, i) => {
+      iSignalMesh.setColorAt(obj.id, signalPalette[i])
+    }); 
+
+    console.log(iSignalMesh)
 
     this.scene.add(iSignalMesh);
 
@@ -231,7 +237,6 @@ export default class App {
     }
 
     this.scene.add(fftMeshes);
-    //renderer.setAnimationLoop(this.render.bind(this));
   }
 
   /**
@@ -267,7 +272,8 @@ export default class App {
    * - Time-domain signal rendering via InstancedMesh
    * - Post-processing effects adjustment based on audio features
    */
-  render([{timestamp}]) {
+  render([{ timestamp }]) {
+
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
       const { clientWidth, clientHeight } = renderer.domElement;
@@ -332,35 +338,79 @@ export default class App {
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
     if (!!signal && iSignalMesh) {
-      for (let i = 0; i < FFT_SIZE; i++) {
-        
-        iSignalDummy.position.set(
+       const eu = new Euler()
+       iSignalMesh.updateInstancesPosition((obj, i) => {
+
+        obj.position.set(
           (SIGNAL_X_SCALE * i) / FFT_SIZE,
           signal[i] * SIGNAL_SCALE,
           0
         );
 
-        iSignalDummy.rotation.set(
+       eu.setFromQuaternion(obj.quaternion).set(
+          (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
+          perceptualSharpness,
+          timestamp++
+        );  
+
+       /*  obj.scale.set(
+          loudness * SIGNAL_SCALE_MULTIPLIER,
+          Math.random(),//perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
+          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
+        ); */
+      });
+      
+      //iSignalMesh.addInstances(FFT_SIZE, (obj, i) => {
+        //console.log(obj)
+        /*obj.position.set(
+          (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          signal[i] * SIGNAL_SCALE,
+          0
+        );
+
+        obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           0,
           loudness
         );
 
-        iSignalDummy.scale.set(
+        obj.scale.set(
+          loudness * SIGNAL_SCALE_MULTIPLIER,
+          perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
+          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
+        );
+      })*/
+
+      /*for (let i = 0; i < FFT_SIZE; i++) {
+
+        iSignalMesh.instances[i].position.set(
+          (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          signal[i] * SIGNAL_SCALE,
+          0
+        );
+
+        iSignalMesh.instances[i].rotation.set(
+          (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
+          0,
+          loudness
+        );
+
+        iSignalMesh.instances[i].scale.set(
           loudness * SIGNAL_SCALE_MULTIPLIER,
           perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
           perceptualSpread * SIGNAL_SCALE_MULTIPLIER
         );
 
-        iSignalDummy.updateMatrix();
+        iSignalMesh.instances[i].updateMatrix();
 
-        iSignalColor.set(signalPalette[i]);
+       /*  iSignalColor.set(signalPalette[i]);
         iSignalMesh.setColorAt(i, iSignalColor);
-        iSignalMesh.setMatrixAt(i, iSignalDummy.matrix);
-      }
+        iSignalMesh.setMatrixAt(i, iSignalDummy.matrix); *
+      }*/
 
-      iSignalMesh.instanceMatrix.needsUpdate = true;
-      iSignalMesh.instanceColor.needsUpdate = true;
+      //iSignalMesh.instanceMatrix.needsUpdate = true;
+      //iSignalMesh.instanceColor.needsUpdate = true;
+      
     }
 
     controls.update();
@@ -407,7 +457,7 @@ export default class App {
       // Render with pause functionality
       renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
         tap(this.render)
-      ) 
+      )
     )
       .pipe(
         catchError((error) => {
