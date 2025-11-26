@@ -141,7 +141,7 @@ gui.addMonitor(audio, "spectralFlatness", {
 export default class App {
 
   init() {
-    const scene = new Scene();
+    this.scene = new Scene();
 
     camera = createCamera();
     camera.position.set(0, CAMERA_POSITION_Y, CAMERA_POSITION_Z);
@@ -161,9 +161,9 @@ export default class App {
     const directionalLight = new DirectionalLight(LIGHT_COLOR, LIGHT_INTENSITY);
     directionalLight.position.set(0, LIGHT_POSITION_Y, LIGHT_POSITION_Z);
 
-    scene.add(directionalLight);
+    this.scene.add(directionalLight);
 
-    const renderPass = new RenderPass(scene, camera);
+    const renderPass = new RenderPass(this.scene, camera);
 
     let w = canvas.clientWidth * dpr;
     let h = canvas.clientHeight * dpr;
@@ -202,19 +202,21 @@ export default class App {
 
     signalPalette.forEach((c, i) => iSignalMesh.setColorAt(i, c));
 
-    scene.add(iSignalMesh);
+    this.scene.add(iSignalMesh);
 
     // 2. group of meshes for fft spectrum
     fftMeshes = new Group();
     for (let i = 0; i < ffts.length; i++) {
       if (ffts[i]) {
-        
+
         const fftGeom = new BufferGeometry();
+     
         fftGeom.setAttribute(
           "position",
           new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
         );
         fftGeom.setDrawRange(0, ffts[i].length);
+        fftGeom.computeBoundingSphere();
 
         const fftMat = new RawShaderMaterial({
           uniforms: {
@@ -227,7 +229,7 @@ export default class App {
           transparent: true,
           side: DoubleSide,
         });
-        
+
         const mesh = new Mesh(fftGeom, fftMat);
         mesh.frustumCulled = false;
 
@@ -235,7 +237,9 @@ export default class App {
       }
     }
 
-    scene.add(fftMeshes);
+    this.scene.add(fftMeshes);
+
+    renderer.setAnimationLoop(this.render.bind(this));
   }
 
   /**
@@ -273,13 +277,12 @@ export default class App {
    * - Time-domain signal rendering via InstancedMesh
    * - Post-processing effects adjustment based on audio features
    */
-  render([{ timestamp }]) {
-    
+  render(timestamp) {
+
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
 
-      const { clientWidth, clientHeight} = renderer.domElement;
-
+      const { clientWidth, clientHeight } = renderer.domElement;
       camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
     }
@@ -368,7 +371,7 @@ export default class App {
     controls.update();
 
     composer.render();
-
+  
     stats.update();
   }
 
@@ -407,17 +410,18 @@ export default class App {
         })
       ),
       // Render with pause functionality
-      renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
+      /* renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
         tap(this.render)
-      )
+      ) */
+
     ).pipe(
       catchError((error) => {
         console.error("Error:", error);
-        
+
         // Show user-friendly error message
         /* const errorMsg = this.getErrorMessage(error);
         this.showError(errorMsg */
-        
+
         // Return empty observable to gracefully terminate
         return EMPTY;
       })

@@ -2,6 +2,7 @@
 
 import { defineConfig } from "vite"
 import { esbuildCommonjs } from "@originjs/vite-plugin-commonjs"
+import basicSsl from "@vitejs/plugin-basic-ssl"
 
 export default defineConfig(({ command, mode }) => {
   return {
@@ -9,17 +10,18 @@ export default defineConfig(({ command, mode }) => {
       https: true
     },
     plugins: [
+      ...[basicSsl()],
       esbuildCommonjs(["colormap"])
     ],
     build: {
-      minify: "terser",
+      //minify: "terser",
       chunkSizeWarningLimit: 1000,
-      terserOptions: {
+      /**  terserOptions: {
         compress: {
           drop_console: true,
           drop_debugger: true,
         },
-      },
+      }, */
       rollupOptions: {
         input: {
           index: "./index.html",
