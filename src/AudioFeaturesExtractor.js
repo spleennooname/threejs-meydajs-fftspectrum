@@ -15,7 +15,7 @@ export const AUDIO_CONSTRAINS = {
 
 /**
  * Audio Features Extractor class using MeydaJS
- * 
+ *
  * Handles:
  * - Web Audio API microphone access
  * - Real-time audio feature extraction using Meyda
@@ -24,7 +24,7 @@ export const AUDIO_CONSTRAINS = {
 export class AudioFeaturesExtractor {
   /**
    * Initializes audio stream and Meyda analyzer
-   * 
+   *
    * @param {Object} options - Configuration options
    * @param {Object} options.constrains - MediaStream constraints
    * @param {number} options.bufferSize - Meyda buffer size for feature extraction
@@ -48,7 +48,7 @@ export class AudioFeaturesExtractor {
 
   /**
    * Handles successful audio stream acquisition
-   * 
+   *
    * @param {Object} params - Stream parameters
    * @param {MediaStream} params.stream - Audio stream from getUserMedia
    * @param {number} params.bufferSize - Buffer size for Meyda analyzer
@@ -79,7 +79,7 @@ export class AudioFeaturesExtractor {
 
   /**
    * Handles audio stream errors with detailed logging
-   * 
+   *
    * @param {Error} error - Error object from getUserMedia or audio processing
    */
   errorStream(error) {
@@ -88,7 +88,9 @@ export class AudioFeaturesExtractor {
     } else if (error.name === "NotFoundError") {
       console.error("AudioFeaturesExtractor: No microphone device found");
     } else if (error.name === "NotSupportedError") {
-      console.error("AudioFeaturesExtractor: getUserMedia not supported in this browser");
+      console.error(
+        "AudioFeaturesExtractor: getUserMedia not supported in this browser"
+      );
     } else {
       console.error("AudioFeaturesExtractor:", error.message || error);
     }
@@ -96,7 +98,7 @@ export class AudioFeaturesExtractor {
 
   /**
    * Extracts audio features using Meyda analyzer
-   * 
+   *
    * @param {string[]} audioFeatures - Array of feature names to extract
    * @returns {Object|null} Object containing extracted features or null if not ready
    */
@@ -118,7 +120,7 @@ export class AudioFeaturesExtractor {
 
   /**
    * Gets the current time-domain signal data
-   * 
+   *
    * @returns {Float32Array|null} Time-domain signal array or null if not available
    */
   signal() {

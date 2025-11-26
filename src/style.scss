@@ -51,7 +51,8 @@ body {
   display: block;
 }
 
-.cover, #cover {
+.cover,
+#cover {
   position: absolute;
   display: flex;
   left: 0;
@@ -64,7 +65,6 @@ body {
   height: 100vh;
   cursor: pointer;
   background-color: rgba(0, 0, 0, 0.5);
-
 }
 
 .cover pre {
@@ -107,8 +107,8 @@ body {
 .play {
   display: block;
   transition: opacity 0.5s ease-out;
-  &:hover{
-    opacity: 0.5!important;
+  &:hover {
+    opacity: 0.5 !important;
   }
 }
 
@@ -135,7 +135,7 @@ body {
 
 // tweak pane
 .tp-dfwv {
-  width: 320px!important;
+  width: 320px !important;
 }
 
 .tp-lblv_l {

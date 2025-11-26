@@ -4,7 +4,15 @@ import Stats from "stats.js";
 
 import { Pane } from "tweakpane";
 
-import { tap, concat, from, catchError, combineLatest, retry, EMPTY } from "rxjs";
+import {
+  tap,
+  concat,
+  from,
+  catchError,
+  combineLatest,
+  retry,
+  EMPTY,
+} from "rxjs";
 
 import {
   Scene,
@@ -18,36 +26,34 @@ import {
   BoxGeometry,
   BufferAttribute,
   InstancedMesh,
-  Vector2,
   DynamicDrawUsage,
-  DoubleSide,
-  RawShaderMaterial,
   MeshLambertMaterial,
 } from "three";
 
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { EffectComposer, RenderPass, BloomEffect, EffectPass } from "postprocessing";
 
 import { getPalette, lerp } from "./utils";
-
-import { fs, vs } from "./shaders/materials/line";
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
 import { pauseKey$, buttonStart$, renderWithPause$ } from "./utils/rx";
 import { dpr, needsResize } from "./utils/three";
-import { FFT_SIZE, NUM_FFT_LINES, FFT_Y_OFFSET, FFT_Z_BASE, FFT_Z_STEP_MULTIPLIER, getFFTs, processAudioFeatures } from "./audio";
-import { createCamera, createOrbitControls } from "./render";
+import {
+  FFT_SIZE,
+  NUM_FFT_LINES,
+  FFT_Y_OFFSET,
+  FFT_Z_BASE,
+  FFT_Z_STEP_MULTIPLIER,
+  getFFTs,
+  processAudioFeatures,
+} from "./audio";
+import { createCamera, createFFTMaterial, createOrbitControls } from "./render";
 
 const SPACEBAR_KEY_CODE = 32;
 
 // Camera configuration constants
-
 const CAMERA_POSITION_Y = -5;
 const CAMERA_POSITION_Z = 10;
-
 
 // Light configuration constants
 const LIGHT_COLOR = 0xffffff;
@@ -57,10 +63,10 @@ const LIGHT_POSITION_Z = 1;
 
 // Bloom pass configuration constants
 const BLOOM_THRESHOLD = 0.0;
-const BLOOM_STRENGTH_BASE = 1.75;
+const BLOOM_STRENGTH_BASE = 1.0;
 const BLOOM_STRENGTH_MIN = 1;
 const BLOOM_STRENGTH_MAX = 1.25;
-const BLOOM_RADIUS_BASE = 1.5;
+const BLOOM_RADIUS_BASE = 1.2
 const BLOOM_RADIUS_MIN = 1;
 const BLOOM_RADIUS_MAX = 3;
 
@@ -70,7 +76,6 @@ const SIGNAL_X_SCALE = 15;
 const SIGNAL_ROTATION_SCALE = 1e-3;
 const SIGNAL_SCALE_MULTIPLIER = 0.5;
 const SIGNAL_POSITION_X = -8;
-
 
 // Color palette
 const COLOR_PALETTE = "picnic";
@@ -85,7 +90,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, signalPalette;
 
-let renderer, camera, composer, bloomPass, controls;
+let renderer, camera, composer, bloomEffect, controls;
 let iSignalMesh, fftMeshes, iSignalDummy, iSignalColor;
 
 const params = {
@@ -131,7 +136,7 @@ gui.addMonitor(audio, "spectralFlatness", {
 
 /**
  * Main Application class for audio-reactive WebGL visualization
- * 
+ *
  * This class orchestrates the entire application flow:
  * - Initializes ThreeJS scene with FFT spectrum and signal visualization
  * - Sets up audio processing pipeline using MeydaJS
@@ -139,7 +144,6 @@ gui.addMonitor(audio, "spectralFlatness", {
  * - Handles user interaction and RxJS reactive streams
  */
 export default class App {
-
   init() {
     this.scene = new Scene();
 
@@ -165,18 +169,17 @@ export default class App {
 
     const renderPass = new RenderPass(this.scene, camera);
 
-    let w = canvas.clientWidth * dpr;
-    let h = canvas.clientHeight * dpr;
-    let resolution = new Vector2(w, h);
+    bloomEffect = new BloomEffect({
+      intensity: BLOOM_STRENGTH_BASE,
+      luminanceThreshold: BLOOM_THRESHOLD,
+      radius: BLOOM_RADIUS_BASE
+    });
 
-    bloomPass = new UnrealBloomPass(resolution, 0, 0, 0);
-    bloomPass.threshold = BLOOM_THRESHOLD;
-    bloomPass.strength = BLOOM_STRENGTH_BASE;
-    bloomPass.radius = BLOOM_RADIUS_BASE;
+    const effectPass = new EffectPass(null, bloomEffect);
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
-    composer.addPass(bloomPass);
+    composer.addPass(effectPass);
 
     ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
@@ -210,25 +213,13 @@ export default class App {
       if (ffts[i]) {
 
         const fftGeom = new BufferGeometry();
-     
         fftGeom.setAttribute(
           "position",
           new BufferAttribute(new Float32Array(ffts[i].length * 3), 3)
         );
-        fftGeom.setDrawRange(0, ffts[i].length);
         fftGeom.computeBoundingSphere();
 
-        const fftMat = new RawShaderMaterial({
-          uniforms: {
-            uColor: {
-              value: colors[ffts.length - i - 1],
-            },
-          },
-          vertexShader: vs,
-          fragmentShader: fs,
-          transparent: true,
-          side: DoubleSide,
-        });
+        const fftMat = createFFTMaterial(colors[ffts.length - i - 1]);
 
         const mesh = new Mesh(fftGeom, fftMat);
         mesh.frustumCulled = false;
@@ -238,8 +229,7 @@ export default class App {
     }
 
     this.scene.add(fftMeshes);
-
-    renderer.setAnimationLoop(this.render.bind(this));
+    //renderer.setAnimationLoop(this.render.bind(this));
   }
 
   /**
@@ -260,17 +250,15 @@ export default class App {
         autoAlpha: 0,
         ease: "power2.out",
       });
-
-    console.log("intro");
   }
 
   /**
    * Main render function called on each animation frame
-   * 
+   *
    * @param {Array} params - Render parameters
    * @param {Object} params[0] - First parameter object
    * @param {number} params[0].timestamp - Current timestamp for animations
-   * 
+   *
    * Processes:
    * - Audio features extraction (loudness, perceptualSharpness, etc.)
    * - FFT spectrum buffer updates and visualization
@@ -278,10 +266,8 @@ export default class App {
    * - Post-processing effects adjustment based on audio features
    */
   render(timestamp) {
-
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
-
       const { clientWidth, clientHeight } = renderer.domElement;
       camera.aspect = clientWidth / clientHeight;
       camera.updateProjectionMatrix();
@@ -307,8 +293,12 @@ export default class App {
     Object.assign(audio, processAudioFeatures(features));
     const { loudness, perceptualSharpness, perceptualSpread } = audio;
 
-    bloomPass.strength = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
-    bloomPass.radius = lerp(BLOOM_RADIUS_MIN, BLOOM_RADIUS_MAX, perceptualSharpness);
+    bloomEffect.intensity = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
+    bloomEffect.radius = lerp(
+      BLOOM_RADIUS_MIN,
+      BLOOM_RADIUS_MAX,
+      perceptualSharpness
+    );
 
     // render ffts
     for (let i = 0; i < ffts.length; i++) {
@@ -330,7 +320,8 @@ export default class App {
           FFT_Y_OFFSET +
           audio.perceptualSharpness +
           ffts[i][j] * (params.amount * loudness);
-        position.array[index + 2] = FFT_Z_BASE - i * (FFT_Z_STEP_MULTIPLIER * perceptualSpread);
+        position.array[index + 2] =
+          FFT_Z_BASE - i * (FFT_Z_STEP_MULTIPLIER * perceptualSpread);
       }
 
       position.needsUpdate = true;
@@ -338,11 +329,14 @@ export default class App {
 
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
-
     if (!!signal && iSignalMesh) {
-
       for (let i = 0; i < FFT_SIZE; i++) {
-        iSignalDummy.position.set((SIGNAL_X_SCALE * i) / FFT_SIZE, signal[i] * SIGNAL_SCALE, 0);
+        
+        iSignalDummy.position.set(
+          (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          signal[i] * SIGNAL_SCALE,
+          0
+        );
 
         iSignalDummy.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
@@ -359,7 +353,6 @@ export default class App {
         iSignalDummy.updateMatrix();
 
         iSignalColor.set(signalPalette[i]);
-
         iSignalMesh.setColorAt(i, iSignalColor);
         iSignalMesh.setMatrixAt(i, iSignalDummy.matrix);
       }
@@ -371,20 +364,20 @@ export default class App {
     controls.update();
 
     composer.render();
-  
+
     stats.update();
   }
 
   /**
    * Main application entry point using RxJS observables
-   * 
+   *
    * @returns {Subscription} RxJS subscription for the application flow
-   * 
+   *
    * Orchestrates:
    * 1. Initial cover animation
    * 2. User button click + audio initialization
    * 3. Scene initialization and intro animation
-   * 4. Continuous render loop with pause functionality
+   * 4. Continuous render loop
    */
   run$() {
     // Start GSAP animation for cover element
@@ -402,7 +395,7 @@ export default class App {
       ]).pipe(
         retry({
           count: 2,
-          delay: 1000
+          delay: 1000,
         }),
         tap(() => {
           this.init();
@@ -410,21 +403,16 @@ export default class App {
         })
       ),
       // Render with pause functionality
-      /* renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
+      renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(
         tap(this.render)
-      ) */
-
-    ).pipe(
-      catchError((error) => {
-        console.error("Error:", error);
-
-        // Show user-friendly error message
-        /* const errorMsg = this.getErrorMessage(error);
-        this.showError(errorMsg */
-
-        // Return empty observable to gracefully terminate
-        return EMPTY;
-      })
-    ).subscribe();
+      ) 
+    )
+      .pipe(
+        catchError((error) => {
+          console.error("Error:", error);
+          return EMPTY;
+        })
+      )
+      .subscribe();
   }
 }

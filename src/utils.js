@@ -1,6 +1,5 @@
 import colormap from "colormap";
 
-
 export const getPalette = (name, num) => {
   return colormap({
     colormap: name,
