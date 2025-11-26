@@ -27,6 +27,8 @@ import {
   BufferAttribute,
   InstancedMesh,
   DynamicDrawUsage,
+  DoubleSide,
+  RawShaderMaterial,
   MeshLambertMaterial,
 } from "three";
 
@@ -265,7 +267,7 @@ export default class App {
    * - Time-domain signal rendering via InstancedMesh
    * - Post-processing effects adjustment based on audio features
    */
-  render(timestamp) {
+  render([{timestamp}]) {
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
       const { clientWidth, clientHeight } = renderer.domElement;
