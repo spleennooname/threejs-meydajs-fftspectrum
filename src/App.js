@@ -20,14 +20,11 @@ import {
   MeshStandardMaterial,
   DirectionalLight,
   Group,
-  Euler,
-  Object3D,
   Mesh,
   Color,
   BufferGeometry,
   BoxGeometry,
   BufferAttribute,
-  DynamicDrawUsage,
   HemisphereLight,
 } from "three";
 
@@ -77,11 +74,7 @@ const BLOOM_RADIUS_MAX = 3;
 const SIGNAL_SCALE = 30;
 const SIGNAL_X_SCALE = 15;
 const SIGNAL_ROTATION_SCALE = 1e-3;
-const SIGNAL_SCALE_MULTIPLIER = 0.5;
 const SIGNAL_POSITION_X = -8;
-
-// Color palette
-const COLOR_PALETTE = "picnic";
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -94,6 +87,7 @@ document.querySelector("#stats").appendChild(stats.dom);
 let ffts, signalPalette;
 
 let renderer, camera, composer, bloomEffect, controls;
+
 let iSignalMesh, fftMeshes;
 
 const params = {
@@ -137,15 +131,6 @@ gui.addMonitor(audio, "spectralFlatness", {
   max: 1,
 });
 
-/**
- * Main Application class for audio-reactive WebGL visualization
- *
- * This class orchestrates the entire application flow:
- * - Initializes ThreeJS scene with FFT spectrum and signal visualization
- * - Sets up audio processing pipeline using MeydaJS
- * - Manages real-time rendering loop with audio-driven effects
- * - Handles user interaction and RxJS reactive streams
- */
 export default class App {
   init() {
     this.scene = new Scene();
@@ -181,7 +166,7 @@ export default class App {
       radius: BLOOM_RADIUS_BASE
     });
 
-    const effectPass = new EffectPass(null, bloomEffect);
+    const effectPass = new EffectPass(camera, bloomEffect);
 
     composer = new EffectComposer(renderer);
     composer.addPass(renderPass);
@@ -190,9 +175,9 @@ export default class App {
     ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
     // check https://github.com/bpostlethwaite/colormap
-    let colors = getPalette(COLOR_PALETTE, ffts.length);
+    let colors = getPalette("picnic", ffts.length);
 
-    signalPalette = getPalette('inferno', FFT_SIZE).map((a) =>
+    signalPalette = getPalette("inferno", FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
@@ -201,21 +186,18 @@ export default class App {
     iSignalMesh = new InstancedMesh2(
       new BoxGeometry(0.25, 0.25, 0.25),
       new MeshStandardMaterial({ color: LIGHT_COLOR }),
-      { capacity: FFT_SIZE, createEntities: true}
+      { capacity: FFT_SIZE, createEntities: true, allowsEuler: true}
     );
-    iSignalMesh.computeBVH();
-    iSignalMesh.instanceMatrix.setUsage(DynamicDrawUsage);
     iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
     iSignalMesh.scale.set(1, 0.5, 1);
     iSignalMesh.addInstances(FFT_SIZE, (obj, i) => {
       iSignalMesh.setColorAt(obj.id, signalPalette[i])
     }); 
-
-    console.log(iSignalMesh)
-
+    //console.log(iSignalMesh)
+    // add istanced mesh for signal
     this.scene.add(iSignalMesh);
 
-    // 2. group of meshes for fft spectrum
+    // add 
     fftMeshes = new Group();
     for (let i = 0; i < ffts.length; i++) {
       if (ffts[i]) {
@@ -338,7 +320,7 @@ export default class App {
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
     if (!!signal && iSignalMesh) {
-       const eu = new Euler()
+     
        iSignalMesh.updateInstancesPosition((obj, i) => {
 
         obj.position.set(
@@ -347,7 +329,7 @@ export default class App {
           0
         );
 
-       eu.setFromQuaternion(obj.quaternion).set(
+       obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           perceptualSharpness,
           timestamp++

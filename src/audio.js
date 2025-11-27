@@ -1,7 +1,7 @@
 import { invlerp } from "./utils";
 
 // Audio configuration constants
-export const FFT_SIZE = 512;
+export const FFT_SIZE = 1024;
 export const NUM_FFT_LINES = 50;
 
 // FFT visualization constants
