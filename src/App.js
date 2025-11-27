@@ -88,7 +88,7 @@ let ffts, signalPalette;
 
 let renderer, camera, composer, bloomEffect, controls;
 
-let iSignalMesh, fftMeshes;
+let iSignalMesh, fftMeshes, irot = 0;
 
 const params = {
   amount: 4,
@@ -100,6 +100,7 @@ const audio = {
   perceptualSharpness: 0,
   perceptualSpread: 0,
   spectralFlatness: 0,
+  spectralKurtosis: 0,
 };
 
 const gui = new Pane({
@@ -126,6 +127,12 @@ gui.addMonitor(audio, "perceptualSharpness", {
   max: 1,
 });
 gui.addMonitor(audio, "spectralFlatness", {
+  view: "graph",
+  min: 0,
+  max: 1,
+});
+
+gui.addMonitor(audio, "spectralKurtosis", {
   view: "graph",
   min: 0,
   max: 1,
@@ -267,6 +274,7 @@ export default class App {
       "perceptualSharpness",
       "perceptualSpread",
       "spectralFlatness",
+      "spectralKurtosis",
       "amplitudeSpectrum", // fft
       "loudness",
     ]);
@@ -281,7 +289,7 @@ export default class App {
 
     // Process audio features
     Object.assign(audio, processAudioFeatures(features));
-    const { loudness, perceptualSharpness, perceptualSpread } = audio;
+    const { loudness, perceptualSharpness, spectralKurtosis, perceptualSpread } = audio;
 
     bloomEffect.intensity = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
     bloomEffect.radius = lerp(
@@ -321,7 +329,7 @@ export default class App {
     const signal = audioFeaturesExtractor.signal();
     if (!!signal && iSignalMesh) {
      
-       iSignalMesh.updateInstancesPosition((obj, i) => {
+       iSignalMesh.updateInstances((obj, i) => {
 
         obj.position.set(
           (SIGNAL_X_SCALE * i) / FFT_SIZE,
@@ -332,67 +340,15 @@ export default class App {
        obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           perceptualSharpness,
-          timestamp++
+          0
         );  
 
-       /*  obj.scale.set(
-          loudness * SIGNAL_SCALE_MULTIPLIER,
-          Math.random(),//perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
-          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
-        ); */
-      });
-      
-      //iSignalMesh.addInstances(FFT_SIZE, (obj, i) => {
-        //console.log(obj)
-        /*obj.position.set(
-          (SIGNAL_X_SCALE * i) / FFT_SIZE,
-          signal[i] * SIGNAL_SCALE,
-          0
-        );
-
-        obj.rotation.set(
-          (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
-          0,
-          loudness
-        );
-
         obj.scale.set(
-          loudness * SIGNAL_SCALE_MULTIPLIER,
-          perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
-          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
-        );
-      })*/
-
-      /*for (let i = 0; i < FFT_SIZE; i++) {
-
-        iSignalMesh.instances[i].position.set(
-          (SIGNAL_X_SCALE * i) / FFT_SIZE,
-          signal[i] * SIGNAL_SCALE,
-          0
-        );
-
-        iSignalMesh.instances[i].rotation.set(
-          (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
-          0,
-          loudness
-        );
-
-        iSignalMesh.instances[i].scale.set(
-          loudness * SIGNAL_SCALE_MULTIPLIER,
-          perceptualSharpness * SIGNAL_SCALE_MULTIPLIER,
-          perceptualSpread * SIGNAL_SCALE_MULTIPLIER
-        );
-
-        iSignalMesh.instances[i].updateMatrix();
-
-       /*  iSignalColor.set(signalPalette[i]);
-        iSignalMesh.setColorAt(i, iSignalColor);
-        iSignalMesh.setMatrixAt(i, iSignalDummy.matrix); *
-      }*/
-
-      //iSignalMesh.instanceMatrix.needsUpdate = true;
-      //iSignalMesh.instanceColor.needsUpdate = true;
-      
+          spectralKurtosis * 2.,
+          loudness,
+          perceptualSpread
+        ); 
+      });
     }
 
     controls.update();

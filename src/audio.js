@@ -24,11 +24,12 @@ export const getFFTs = (number, pointCount) => {
 
 // Process audio features for visualization
 export const processAudioFeatures = (features) => {
-  const { perceptualSpread, perceptualSharpness, spectralFlatness, loudness } =
+  const { perceptualSpread, perceptualSharpness, spectralKurtosis, spectralFlatness, loudness } =
     features;
 
   return {
     loudness: invlerp(LOUDNESS_MIN, LOUDNESS_MAX, loudness.total),
+    spectralKurtosis: invlerp(10, 40, spectralKurtosis),
     perceptualSharpness,
     perceptualSpread,
     spectralFlatness,

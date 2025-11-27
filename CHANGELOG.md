@@ -1,13 +1,14 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [1.1.1] - 2025-11-27
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+- other refactors
+- three to r0.181.2
+- node/npm to 22.21.1
+- used wonderful [InstancedMesh2](https://github.com/agargaro/instanced-mesh)
+- 
 
-## [Unreleased]
-
-## [1.0.0] - 2025-11-15
+## [1.1.0] - 2025-11-15
 
 ### Changed
 - Major refactor of codebase architecture
@@ -15,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved RxJS reactive patterns and error handling
 - Enhanced code formatting with Prettier integration
 - Updated development workflow with better tooling
-
-### Updated
 - Three.js to v0.180.0 (latest)
 - MeyDA to v5.6.3 (latest audio feature extraction)
 - RxJS to v7.5.5 (reactive programming)
