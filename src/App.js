@@ -68,7 +68,7 @@ const BLOOM_STRENGTH_MIN = 1;
 const BLOOM_STRENGTH_MAX = 1.25;
 const BLOOM_RADIUS_BASE = 1.2
 const BLOOM_RADIUS_MIN = 1;
-const BLOOM_RADIUS_MAX = 3;
+const BLOOM_RADIUS_MAX = 2.5;
 
 // Signal visualization constants
 const SIGNAL_SCALE = 30;
@@ -88,7 +88,7 @@ let ffts, signalPalette;
 
 let renderer, camera, composer, bloomEffect, controls;
 
-let iSignalMesh, fftMeshes, irot = 0;
+let iSignalMesh, iFFTMesh, fftMeshes, irot = 0;
 
 const params = {
   amount: 4,
@@ -184,12 +184,11 @@ export default class App {
     // check https://github.com/bpostlethwaite/colormap
     let colors = getPalette("picnic", ffts.length);
 
-    signalPalette = getPalette("inferno", FFT_SIZE).map((a) =>
+    signalPalette = getPalette("bone", FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
     // 1. INSTANCED MESH for signal
- 
     iSignalMesh = new InstancedMesh2(
       new BoxGeometry(0.25, 0.25, 0.25),
       new MeshStandardMaterial({ color: LIGHT_COLOR }),
@@ -204,8 +203,20 @@ export default class App {
     // add istanced mesh for signal
     this.scene.add(iSignalMesh);
 
+    // 2. FFT MESH
+    iFFTMesh = new InstancedMesh2(
+      new BoxGeometry(0.5, 0.5, 0.5),
+      new MeshStandardMaterial({ color: 0xff0000 }),
+      { capacity: ffts.length * (FFT_SIZE/2), createEntities: true, allowsEuler: true}
+    );
+    iFFTMesh.addInstances(ffts.length * ffts[0].length, (obj, i) => {
+      const fftIndex = Math.floor(i / ffts[0].length);
+      iFFTMesh.setColorAt(obj.id, 0xff0000)
+    }); 
+    this.scene.add(iFFTMesh);
+
     // add 
-    fftMeshes = new Group();
+    /*fftMeshes = new Group();
     for (let i = 0; i < ffts.length; i++) {
       if (ffts[i]) {
 
@@ -225,7 +236,7 @@ export default class App {
       }
     }
 
-    this.scene.add(fftMeshes);
+    this.scene.add(fftMeshes);*/
   }
 
   /**
@@ -298,8 +309,26 @@ export default class App {
       perceptualSharpness
     );
 
+    iFFTMesh.updateInstances((obj, i) => {
+        
+        const fftIndex = Math.floor(i / FFT_SIZE * 0.5);
+        const freqBin = i % (FFT_SIZE * 0.5);
+
+        obj.scale.set(
+          ffts[fftIndex][freqBin],
+          loudness,
+          perceptualSpread
+        ); 
+
+        obj.position.set(
+          params.xscale + params.xscale * Math.log10((freqBin + 1) / FFT_SIZE * 0.5),
+          FFT_Y_OFFSET + audio.perceptualSharpness + ffts[fftIndex][freqBin] * (params.amount * loudness),
+          FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.)//perceptualSpread)
+        )
+    })
+
     // render ffts
-    for (let i = 0; i < ffts.length; i++) {
+    /*for (let i = 0; i < ffts.length; i++) {
       const position = fftMeshes.children[i].geometry.getAttribute("position");
       for (let j = 0; j < position.count * 3; j++) {
         const index = j * 3;
@@ -323,7 +352,7 @@ export default class App {
       }
 
       position.needsUpdate = true;
-    }
+    }*/
 
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
@@ -337,16 +366,16 @@ export default class App {
           0
         );
 
-       obj.rotation.set(
+      /*  obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           perceptualSharpness,
           0
-        );  
+        );  */ 
 
         obj.scale.set(
-          spectralKurtosis * 2.,
+          (1. + spectralKurtosis * 2.),
           loudness,
-          perceptualSpread
+          perceptualSpread * 0.5
         ); 
       });
     }
