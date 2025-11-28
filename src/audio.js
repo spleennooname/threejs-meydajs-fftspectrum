@@ -2,10 +2,10 @@ import { invlerp } from "./utils";
 
 // Audio configuration constants
 export const FFT_SIZE = 1024;
-export const NUM_FFT_LINES = 50;
+export const NUM_FFT_LINES = 80;
 
 // FFT visualization constants
-export const FFT_Y_OFFSET = -15;
+export const FFT_Y_OFFSET = -5;
 export const FFT_Z_BASE = 15;
 export const FFT_Z_STEP_MULTIPLIER = 5;
 

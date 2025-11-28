@@ -18,19 +18,16 @@ import {
   Scene,
   WebGLRenderer,
   MeshStandardMaterial,
+  MeshBasicMaterial,
   DirectionalLight,
-  Group,
-  Mesh,
   Color,
-  BufferGeometry,
   BoxGeometry,
-  BufferAttribute,
   HemisphereLight,
 } from "three";
 
-import { InstancedMesh2 } from "@three.ez/instanced-mesh"
+import { InstancedMesh2, createRadixSort } from "@three.ez/instanced-mesh"
 
-import { EffectComposer, RenderPass, BloomEffect, EffectPass } from "postprocessing";
+import { EffectComposer, RenderPass, BloomEffect, EffectPass, BlendFunction } from "postprocessing";
 
 import { getPalette, lerp } from "./utils";
 
@@ -47,7 +44,7 @@ import {
   getFFTs,
   processAudioFeatures,
 } from "./audio";
-import { createCamera, createFFTMaterial, createOrbitControls } from "./render";
+import { createCamera, createOrbitControls } from "./render";
 
 const SPACEBAR_KEY_CODE = 32;
 
@@ -157,20 +154,40 @@ export default class App {
     controls = createOrbitControls(camera, canvas);
     controls.update();
 
-    const hemiLight = new HemisphereLight(0xffffff, 0x000000, 1.)
+    const hemiLight = new HemisphereLight(0xffffff, 0x222222, 1.5)
 
-    const directionalLight = new DirectionalLight(LIGHT_COLOR, LIGHT_INTENSITY);
+    const directionalLight = new DirectionalLight(0xFFFFFF, 2.0);
     directionalLight.position.set(0, LIGHT_POSITION_Y, LIGHT_POSITION_Z);
 
     this.scene.add(hemiLight);
     this.scene.add(directionalLight);
 
     const renderPass = new RenderPass(this.scene, camera);
-
+   
+    /**
+	 * Constructs a new bloom effect.
+	 *
+	 * @param {Object} [options] - The options.
+	 * @param {BlendFunction} [options.blendFunction=BlendFunction.SCREEN] - The blend function of this effect.
+	 * @param {Number} [options.luminanceThreshold=1.0] - The luminance threshold. Raise this value to mask out darker elements in the scene.
+	 * @param {Number} [options.luminanceSmoothing=0.03] - Controls the smoothness of the luminance threshold.
+	 * @param {Boolean} [options.mipmapBlur=true] - Enables or disables mipmap blur.
+	 * @param {Number} [options.intensity=1.0] - The bloom intensity.
+	 * @param {Number} [options.radius=0.85] - The blur radius. Only applies to mipmap blur.
+	 * @param {Number} [options.levels=8] - The amount of MIP levels. Only applies to mipmap blur.
+	 * @param {KernelSize} [options.kernelSize=KernelSize.LARGE] - Deprecated. Use mipmapBlur instead.
+	 * @param {Number} [options.resolutionScale=0.5] - Deprecated. Use mipmapBlur instead.
+	 * @param {Number} [options.resolutionX=Resolution.AUTO_SIZE] - Deprecated. Use mipmapBlur instead.
+	 * @param {Number} [options.resolutionY=Resolution.AUTO_SIZE] - Deprecated. Use mipmapBlur instead.
+	 * @param {Number} [options.width=Resolution.AUTO_SIZE] - Deprecated. Use mipmapBlur instead.
+	 * @param {Number} [options.height=Resolution.AUTO_SIZE] - Deprecated. Use mipmapBlur instead.
+	 */
     bloomEffect = new BloomEffect({
-      intensity: BLOOM_STRENGTH_BASE,
-      luminanceThreshold: BLOOM_THRESHOLD,
-      radius: BLOOM_RADIUS_BASE
+      luminanceThreshold: 0.0,
+      intensity: 1.4,
+      radius: 1.0,
+      mipmapBlur: true,
+      blendFunction: BlendFunction.SCREEN
     });
 
     const effectPass = new EffectPass(camera, bloomEffect);
@@ -181,8 +198,10 @@ export default class App {
 
     ffts = getFFTs(NUM_FFT_LINES, FFT_SIZE);
 
+    console.log(ffts.length * (FFT_SIZE/2))
+
     // check https://github.com/bpostlethwaite/colormap
-    let colors = getPalette("picnic", ffts.length);
+    let colors = getPalette("rainbow-soft", ffts.length);
 
     signalPalette = getPalette("bone", FFT_SIZE).map((a) =>
       new Color().fromArray(a)
@@ -191,7 +210,10 @@ export default class App {
     // 1. INSTANCED MESH for signal
     iSignalMesh = new InstancedMesh2(
       new BoxGeometry(0.25, 0.25, 0.25),
-      new MeshStandardMaterial({ color: LIGHT_COLOR }),
+      new MeshStandardMaterial({ 
+        emissive: 0x444444,
+        emissiveIntensity: 0.5
+      }),
       { capacity: FFT_SIZE, createEntities: true, allowsEuler: true}
     );
     iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
@@ -205,14 +227,22 @@ export default class App {
 
     // 2. FFT MESH
     iFFTMesh = new InstancedMesh2(
-      new BoxGeometry(0.5, 0.5, 0.5),
-      new MeshStandardMaterial({ color: 0xff0000 }),
+      new BoxGeometry(0.45, 0.45, 0.45),
+      new MeshStandardMaterial({ 
+        color: 0xff0000,
+        emissive: 0xff2222,
+        emissiveIntensity: 0.3
+      }),
       { capacity: ffts.length * (FFT_SIZE/2), createEntities: true, allowsEuler: true}
     );
-    iFFTMesh.addInstances(ffts.length * ffts[0].length, (obj, i) => {
-      const fftIndex = Math.floor(i / ffts[0].length);
-      iFFTMesh.setColorAt(obj.id, 0xff0000)
-    }); 
+    
+   iFFTMesh.addInstances(ffts.length * (FFT_SIZE/2), (obj, i) => {
+      
+      const fftIndex = Math.floor(i / (FFT_SIZE/2));
+      //iFFTMesh.setColorAt(obj.id, new Color().fromArray(colors[fftIndex]))
+      obj.opacity = 1.0
+
+    });  
     this.scene.add(iFFTMesh);
 
     // add 
@@ -239,10 +269,7 @@ export default class App {
     this.scene.add(fftMeshes);*/
   }
 
-  /**
-   * Handles the intro animation sequence
-   * Uses GSAP to animate the cover element fade out
-   */
+  // gsap intro
   intro() {
     gsap
       .timeline()
@@ -261,18 +288,12 @@ export default class App {
 
   /**
    * Main render function called on each animation frame
-   *
-   * @param {Array} params - Render parameters
-   * @param {Object} params[0] - First parameter object
-   * @param {number} params[0].timestamp - Current timestamp for animations
-   *
-   * Processes:
    * - Audio features extraction (loudness, perceptualSharpness, etc.)
    * - FFT spectrum buffer updates and visualization
    * - Time-domain signal rendering via InstancedMesh
    * - Post-processing effects adjustment based on audio features
    */
-  render([{ timestamp }]) {
+  render([{ timestamp, elapsed }]) {
 
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
@@ -302,28 +323,32 @@ export default class App {
     Object.assign(audio, processAudioFeatures(features));
     const { loudness, perceptualSharpness, spectralKurtosis, perceptualSpread } = audio;
 
-    bloomEffect.intensity = lerp(BLOOM_STRENGTH_MIN, BLOOM_STRENGTH_MAX, loudness);
-    bloomEffect.radius = lerp(
-      BLOOM_RADIUS_MIN,
-      BLOOM_RADIUS_MAX,
-      perceptualSharpness
-    );
+    bloomEffect.intensity = lerp(0.5, 2, loudness);
+    bloomEffect.radius = lerp(0.5, 1.25, perceptualSharpness);
 
+    // x -> frequency bins
+        // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
+        // - Human hearing is logarithmic: we perceive frequency ratios, not differences
+        // - Octaves (2:1 ratio) sound equally spaced regardless of absolute frequency
+        // - Standard in audio: piano keys, musical scales, EQ bands, spectrum analyzers
+        // - Linear FFT bins would compress low frequencies into tiny visual space
+        // - Log scale gives bass/mids/treble proportional visual representation
+        // https://www.desmos.com/calculator/ss4rcedsl4
     iFFTMesh.updateInstances((obj, i) => {
         
         const fftIndex = Math.floor(i / FFT_SIZE * 0.5);
         const freqBin = i % (FFT_SIZE * 0.5);
 
-        obj.scale.set(
-          ffts[fftIndex][freqBin],
-          loudness,
-          perceptualSpread
-        ); 
+         obj.scale.set(
+          1 + ffts[fftIndex][freqBin],
+          1 + spectralKurtosis *1,
+          1 + perceptualSpread
+        );  
 
         obj.position.set(
           params.xscale + params.xscale * Math.log10((freqBin + 1) / FFT_SIZE * 0.5),
-          FFT_Y_OFFSET + audio.perceptualSharpness + ffts[fftIndex][freqBin] * (params.amount * loudness),
-          FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.)//perceptualSpread)
+          FFT_Y_OFFSET + ffts[fftIndex][freqBin] * (params.amount * loudness),
+          FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.0)
         )
     })
 
