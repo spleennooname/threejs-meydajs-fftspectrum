@@ -2,20 +2,17 @@ import { invlerp } from "./utils";
 
 // Audio configuration constants
 export const FFT_SIZE = 1024;
-export const NUM_FFT_LINES = 80;
+export const NUM_FFT_SNAPSHOTS = 70;
 
-// FFT visualization constants
-export const FFT_Y_OFFSET = -5;
-export const FFT_Z_BASE = 15;
-export const FFT_Z_STEP_MULTIPLIER = 5;
+// FFT grid visualization
+export const FFT_Y_OFFSET = -10;
+export const FFT_Z_BASE = -5;
+// fft bar spacing
+export const FFT_Z_STEP_MULTIPLIER = 6;
 
-// Audio processing constants
-export const LOUDNESS_MIN = 3;
-export const LOUDNESS_MAX = 50;
-
-// FFT utility functions
+// return ffts matrix filled
 export const getFFTs = (number, pointCount) => {
-  let ffts = [];
+  const ffts = [];
   for (let i = 0; i < number; i++) {
     ffts.push(Array(pointCount).fill(0));
   }
@@ -24,12 +21,17 @@ export const getFFTs = (number, pointCount) => {
 
 // Process audio features for visualization
 export const processAudioFeatures = (features) => {
-  const { perceptualSpread, perceptualSharpness, spectralKurtosis, spectralFlatness, loudness } =
-    features;
+  const {
+    perceptualSpread,
+    perceptualSharpness,
+    spectralKurtosis,
+    spectralFlatness,
+    loudness,
+  } = features;
 
   return {
-    loudness: invlerp(LOUDNESS_MIN, LOUDNESS_MAX, loudness.total),
-    spectralKurtosis: invlerp(10, 40, spectralKurtosis),
+    loudness: invlerp(0, 50, loudness.total),
+    spectralKurtosis: invlerp(5, 40, spectralKurtosis),
     perceptualSharpness,
     perceptualSpread,
     spectralFlatness,
