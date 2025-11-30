@@ -1,5 +1,3 @@
-export * from "../shaders/materials/line";
-
 export const dpr = Math.min(1.2, window.devicePixelRatio);
 
 export function needsResize({ renderer, composer }) {

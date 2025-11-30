@@ -31,6 +31,7 @@
   ],
   "dependencies": {
     "@three.ez/instanced-mesh": "^0.3.11",
+    "camera-controls": "^3.1.2",
     "colormap": "^2.3.2",
     "gsap": "^3.10.4",
     "meyda": "^5.6.3",

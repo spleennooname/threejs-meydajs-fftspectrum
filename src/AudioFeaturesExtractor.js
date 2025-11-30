@@ -13,6 +13,16 @@ export const AUDIO_CONSTRAINS = {
   },
 };
 
+const AUDIO_FEATURES = [
+  "amplitudeSpectrum",
+  "spectralCentroid",
+  "spectralRolloff",
+  "perceptualSharpness",
+  "loudness",
+  "rms",
+  "chroma",
+  "mfcc",
+];
 /**
  * Audio Features Extractor class using MeydaJS
  *
@@ -31,7 +41,7 @@ export class AudioFeaturesExtractor {
    * @returns {Promise<MediaStream>} Promise resolving to audio stream
    */
   meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = FFT_SIZE }) {
-    // Check for modern MediaDevices API support
+    // check for modern MediaDevices API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(
         new Error(
@@ -102,18 +112,7 @@ export class AudioFeaturesExtractor {
    * @param {string[]} audioFeatures - Array of feature names to extract
    * @returns {Object|null} Object containing extracted features or null if not ready
    */
-  features(
-    audioFeatures = [
-      "amplitudeSpectrum",
-      "spectralCentroid",
-      "spectralRolloff",
-      "perceptualSharpness",
-      "loudness",
-      "rms",
-      "chroma",
-      "mfcc",
-    ]
-  ) {
+  features(audioFeatures = AUDIO_FEATURES) {
     if (!this.meyda || !this.audioContext) return null;
     return this.meyda.get(audioFeatures);
   }

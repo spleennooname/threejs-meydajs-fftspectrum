@@ -5,33 +5,22 @@ import {
   HemisphereLight,
 } from "three";
 
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import * as THREE from "three";
+
+import CameraControls from "camera-controls";
+CameraControls.install({ THREE: THREE });
 
 import { BloomEffect, ScanlineEffect, BlendFunction } from "postprocessing";
-
-//import { fs, vs } from "./shaders/materials/line";
 
 const CAMERA_FOV = 50;
 const CAMERA_ASPECT = 4 / 3;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e4;
 
-// Controls configuration constants
-const CONTROLS_MAX_DISTANCE = 20;
-const CONTROLS_MIN_DISTANCE = 10;
-const CONTROLS_DAMPING_FACTOR = 5e-2;
-const CONTROLS_MIN_POLAR_ANGLE = 0;
-const CONTROLS_MAX_POLAR_ANGLE = Math.PI / 2;
-
 // Light configuration constants
 const LIGHT_POSITION_Y = 1;
 const LIGHT_POSITION_Z = 1;
 
-/**
- * Creates a Three.js perspective camera with predefined settings
- *
- * @returns {PerspectiveCamera} Configured perspective camera for 3D visualization
- */
 export function createCamera() {
   return new PerspectiveCamera(
     CAMERA_FOV,
@@ -48,8 +37,8 @@ export function createCamera() {
  * @param {HTMLCanvasElement} canvas - The canvas element for mouse events
  * @returns {OrbitControls} Configured orbit controls with damping and movement constraints
  */
-export function createOrbitControls(camera, canvas) {
-  const controls = new OrbitControls(camera, canvas);
+export function createControls(camera, canvas) {
+  /* const controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.maxDistance = CONTROLS_MAX_DISTANCE;
@@ -58,16 +47,13 @@ export function createOrbitControls(camera, canvas) {
   controls.minAzimuthAngle = -Math.PI;
   controls.maxAzimuthAngle = Math.PI;
   controls.minPolarAngle = CONTROLS_MIN_POLAR_ANGLE;
-  controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE;
+  controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE; */
+
+  const controls = new CameraControls(camera, canvas);
+
   return controls;
 }
 
-/**
- * Creates a shader material for FFT spectrum visualization
- *
- * @param {Array} color - RGB color array for the material
- * @returns {RawShaderMaterial} Configured shader material with custom vertex/fragment shaders
- */
 /**
  * Creates an orthographic camera for signal visualization
  *
@@ -89,20 +75,6 @@ export function createOrthographicCamera(
 ) {
   return new OrthographicCamera(left, right, top, bottom, near, far);
 }
-
-/* export function createFFTMaterial(color) {
-  return new RawShaderMaterial({
-    uniforms: {
-      uColor: {
-        value: color,
-      },
-    },
-    vertexShader: vs,
-    fragmentShader: fs,
-    transparent: true,
-    side: DoubleSide,
-  });
-} */
 
 export function createLights() {
   // some lights

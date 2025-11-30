@@ -1,41 +1,12 @@
 import {
-  Observable,
   debounceTime,
   fromEvent,
   filter,
   startWith,
   first,
   scan,
-  animationFrames,
   withLatestFrom,
-  distinctUntilChanged,
 } from "rxjs";
-
-export function resizeObserver$(el) {
-  return new Observable((subscriber) => {
-    // https://web.dev/resize-observer/
-    let ro = new ResizeObserver((entries) => {
-      subscriber.next(entries);
-    });
-    try {
-      // only call us of the number of device pixels changed
-      ro.observe(el, { box: "device-pixel-content-box" });
-    } catch (ex) {
-      // device-pixel-content-box is not supported so fallback to this
-      ro.observe(el, { box: "content-box" });
-    }
-    return function unsubscribe() {
-      ro.unobserve(el);
-    };
-  }).pipe(debounceTime(250), distinctUntilChanged());
-}
-
-export function resize$() {
-  return fromEvent(window, "resize").pipe(
-    debounceTime(250),
-    distinctUntilChanged()
-  );
-}
 
 export function pauseKey$(keyCode) {
   return fromEvent(document, "keydown").pipe(
@@ -45,15 +16,37 @@ export function pauseKey$(keyCode) {
   );
 }
 
-export function buttonStart$(btn) {
+export function clickButton$(btn) {
   return fromEvent(btn, "click").pipe(debounceTime(250), first());
 }
 
-export function renderWithPause$(pause$) {
-  return animationFrames().pipe(
-    //auditTime(1000 / fps),
-    withLatestFrom(pause$),
-    filter((arr) => !arr[1])
-    //takeUntil(destroy$)
-  );
+/**
+ * Wraps renderer.setAnimationLoop with RxJS pause functionality
+ * @param {WebGLRenderer} renderer - Three.js renderer
+ * @param {Function} renderCallback - Animation loop callback
+ * @param {Observable} pause$ - Pause state observable
+ * @returns {Function} Cleanup function to stop the animation
+ */
+export function setAnimationLoopWithPause(renderer, renderCallback, pause$) {
+  let isPaused = false;
+
+  const pauseSubscription = pause$.subscribe((paused) => {
+    isPaused = paused;
+    if (paused) {
+      renderer.setAnimationLoop(null); // Stop animation loop
+    } else {
+      renderer.setAnimationLoop(renderCallback); // Resume animation loop
+    }
+  });
+
+  // Start animation loop if not paused
+  if (!isPaused) {
+    renderer.setAnimationLoop(renderCallback);
+  }
+
+  // Return cleanup function
+  return () => {
+    renderer.setAnimationLoop(null);
+    pauseSubscription.unsubscribe();
+  };
 }

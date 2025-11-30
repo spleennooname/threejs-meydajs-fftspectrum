@@ -20,6 +20,8 @@ import {
   MeshStandardMaterial,
   Color,
   BoxGeometry,
+  MathUtils,
+  Clock,
 } from "three";
 
 import { InstancedMesh2 } from "@three.ez/instanced-mesh";
@@ -30,8 +32,10 @@ import { getPalette, lerp } from "./utils";
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
-import { pauseKey$, buttonStart$, renderWithPause$ } from "./utils/rx";
+import { pauseKey$, clickButton$, setAnimationLoopWithPause } from "./utils/rx";
+
 import { dpr, needsResize } from "./utils/three";
+
 import {
   FFT_SIZE,
   NUM_FFT_SNAPSHOTS,
@@ -39,11 +43,15 @@ import {
   FFT_Z_BASE,
   FFT_Z_STEP_MULTIPLIER,
   getFFTs,
+  FFT_AUDIO_FEATURES,
+  getFFTIndex,
   processAudioFeatures,
+  getFrequencyXPosition,
 } from "./audio";
+
 import {
   createCamera,
-  createOrbitControls,
+  createControls,
   createOrthographicCamera,
   createLights,
   createPostEffects,
@@ -70,15 +78,11 @@ document.querySelector("#stats").appendChild(stats.dom);
 
 let ffts, iSignalPalette, iFFTPalette;
 
-let renderer,
-  camera,
-  signalCamera,
-  composer,
-  controls;
+// three stuff
+let renderer, camera, signalCamera, clock, composer, controls;
 
-let iSignalMesh,
-  iFFTMesh,
-  lastTimestamp = 0;
+// instanced mesh
+let iSignalMesh, iFFTMesh;
 
 const params = {
   amount: 5,
@@ -110,6 +114,8 @@ export default class App {
     signalCamera.position.set(SIGNAL_POSITION_X, 0, 10);
     signalCamera.lookAt(SIGNAL_POSITION_X, 0, 0);
 
+    clock = new Clock();
+
     renderer = new WebGLRenderer({
       canvas,
       antialias: false,
@@ -119,13 +125,13 @@ export default class App {
     renderer.setPixelRatio(dpr);
 
     // controls
-    controls = createOrbitControls(camera, canvas);
-    controls.update();
+    controls = createControls(camera, canvas);
 
     // some lights;
     const [light1, light2] = createLights();
     this.scene.add(light1, light2);
 
+    // post fx
     const renderPass = new RenderPass(this.scene, camera);
     const effectPass = new EffectPass(camera, ...createPostEffects());
 
@@ -133,8 +139,12 @@ export default class App {
     composer.addPass(renderPass, 0);
     composer.addPass(effectPass, 1);
 
-    console.log(composer.passes);
-    // pre-fill matrix fft values with 0
+    /**  NUM_FFT_SNAPSHOTS fft snapshots x FFT_SIZE = 
+     *   NUM_FFT_SNAPSHOTS arrays (size = FFT_SIZE )
+     *  Ogni istanza i deve mappare a:
+        - fftIndex: quale snapshot (0.. NUM_FFT_SNAPSHOTS-1)
+        - freqBin: quale frequency bin (0..FFT_SIZE/2)
+     */
     ffts = getFFTs(NUM_FFT_SNAPSHOTS, FFT_SIZE);
 
     console.log(ffts.length * (FFT_SIZE / 2));
@@ -142,7 +152,7 @@ export default class App {
     iSignalPalette = getPalette("bone", FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
-    
+
     iFFTPalette = getPalette("viridis", FFT_SIZE / 2).map((a) =>
       new Color().fromArray(a)
     );
@@ -151,8 +161,8 @@ export default class App {
     iSignalMesh = new InstancedMesh2(
       new BoxGeometry(0.25, 0.25, 0.25),
       new MeshStandardMaterial({
-        emissive: 0x444444,
-        emissiveIntensity: 0.5,
+        //emissive: 0x444444,
+        //emissiveIntensity: 0.5,
       }),
       { capacity: FFT_SIZE, createEntities: true, allowsEuler: true }
     );
@@ -166,7 +176,7 @@ export default class App {
 
     // 2. FFT MESH
     iFFTMesh = new InstancedMesh2(
-      new BoxGeometry(0.5, 0.5, 0.5),
+      new BoxGeometry(0.45, 0.45, 0.45),
       new MeshStandardMaterial({
         color: 0xffffff,
         //emissive: 0xff2222,
@@ -174,23 +184,21 @@ export default class App {
       }),
       {
         capacity: ffts.length * (FFT_SIZE / 2),
-        createEntities: true,
         allowsEuler: true,
       }
     );
 
-    iFFTMesh.addInstances(ffts.length * (FFT_SIZE / 2), (obj, i) => {
-      //const fftIndex = Math.floor(i / (FFT_SIZE/2));
-      //iFFTMesh.setColorAt(obj.id, new Color().fromArray(colors[fftIndex]))
-      //obj.opacity = 1.0
-      //bloomSelection.add(obj)
-    });
+    iFFTMesh.addInstances(ffts.length * (FFT_SIZE / 2));
 
     this.scene.add(iFFTMesh);
   }
 
-  // gsap intro
   intro() {
+    // cinema veritè
+    controls.rotateTo(MathUtils.degToRad(45), MathUtils.degToRad(55), true);
+    controls.dollyTo(40, true);
+    controls.truck(0, -30, true);
+
     gsap
       .timeline()
       .to("#cover", {
@@ -213,10 +221,8 @@ export default class App {
    * - Time-domain signal rendering via InstancedMesh
    * - Post-processing effects adjustment based on audio features
    */
-  render([{ timestamp }]) {
-    const deltaTime = timestamp - lastTimestamp;
-
-    lastTimestamp = timestamp;
+  render() {
+    const deltaTime = clock.getDelta();
 
     // https://threejs.org/manual/#en/responsive
     if (needsResize({ renderer, composer })) {
@@ -226,14 +232,7 @@ export default class App {
     }
 
     // get audio features
-    const features = audioFeaturesExtractor.features([
-      "perceptualSharpness",
-      "perceptualSpread",
-      "spectralFlatness",
-      "spectralKurtosis",
-      "amplitudeSpectrum", // fft
-      "loudness",
-    ]);
+    const features = audioFeaturesExtractor.features(FFT_AUDIO_FEATURES);
 
     if (!features) return;
 
@@ -255,8 +254,8 @@ export default class App {
 
     // make bloom reactive uh
     const [bloomEffect] = composer.passes[1].effects;
-    bloomEffect.intensity = lerp(0.5, 2, loudness);
-    bloomEffect.radius = lerp(0.5, 50.0, perceptualSharpness);
+    bloomEffect.intensity = lerp(0.5, 4, loudness);
+    bloomEffect.radius = lerp(0.5, 5.0, perceptualSharpness);
 
     // x -> frequency bins
     // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
@@ -265,20 +264,21 @@ export default class App {
     // - Standard in audio: piano keys, musical scales, EQ bands, spectrum analyzers
     // - Linear FFT bins would compress low frequencies into tiny visual space
     // - Log scale gives bass/mids/treble proportional visual representation
-    // https://www.desmos.com/calculator/ss4rcedsl4
+    // Formula: xScale * (1 + log10((freqBin + 1) / (FFT_SIZE / 2)))
     iFFTMesh.updateInstances((obj, i) => {
-      const fftIndex = Math.floor((i / FFT_SIZE) * 0.5);
-      const freqBin = i % (FFT_SIZE * 0.5);
+      const fftIndex = getFFTIndex(i);
+
+      const freqBin = i % (FFT_SIZE / 2);
       const fftValue = ffts[fftIndex][freqBin];
 
       obj.scale.set(
-        1 + fftValue,
-        1 + spectralKurtosis * 1,
-        1 + perceptualSpread
+        4 + fftValue,
+        4 + spectralKurtosis * 1,
+        4 + perceptualSpread
       );
 
       obj.position.set(
-        params.xscale * (1 + Math.log10(((freqBin + 1) / FFT_SIZE) * 0.5)),
+        getFrequencyXPosition(freqBin, params.xscale),
         FFT_Y_OFFSET + fftValue * (params.amount * loudness),
         FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.0)
       );
@@ -287,7 +287,7 @@ export default class App {
       obj.opacity = Math.min(1, 0.1 + fftValue * 2.0);
 
       // Strong frequencies turn white
-     /*  const whiteIntensity = Math.min(1, fftValue * 3.0);
+      /*  const whiteIntensity = Math.min(1, fftValue * 3.0);
       const originalColor = new Color(0xff0000);
       const whiteColor = new Color(0xffffff);
       const finalColor = originalColor.clone().lerp(whiteColor, whiteIntensity); */
@@ -311,15 +311,15 @@ export default class App {
           0
         );  */
 
-        obj.scale.set(
+        /*   obj.scale.set(
           1 + spectralKurtosis * 2,
           loudness,
           perceptualSpread * 0.5
-        );
+        ); */
       });
     }
 
-    controls.update();
+    controls.update(deltaTime);
 
     /* 
     if (iSignalMesh && signalCamera) {
@@ -340,7 +340,7 @@ export default class App {
    * 1. Initial cover animation
    * 2. User button click + audio initialization
    * 3. Scene initialization and intro animation
-   * 4. Continuous render loop
+   * 4. Continuous render loop with pause feature
    */
   run$() {
     // fadein cover
@@ -350,10 +350,12 @@ export default class App {
       ease: "expo.inOut",
     });
 
+    const pause$ = pauseKey$(SPACEBAR_KEY_CODE); // Spacebar
+
     // combine observables
     return concat(
       combineLatest([
-        buttonStart$(btn),
+        clickButton$(btn),
         from(audioFeaturesExtractor.meydaPromise({ fftSize: FFT_SIZE })),
       ]).pipe(
         retry({
@@ -361,12 +363,16 @@ export default class App {
           delay: 1000,
         }),
         tap(() => {
+          // init
           this.init();
+
+          // start render loop
+          setAnimationLoopWithPause(renderer, this.render.bind(this), pause$);
+
+          // intro camera
           this.intro();
         })
-      ),
-      // render with pause
-      renderWithPause$(pauseKey$(SPACEBAR_KEY_CODE)).pipe(tap(this.render))
+      )
     )
       .pipe(
         catchError((error) => {
