@@ -130,6 +130,10 @@ export default class App {
     // some lights;
     const [light1, light2] = createLights();
     this.scene.add(light1, light2);
+    
+    // Add lights to signal scene as well
+    const [signalLight1, signalLight2] = createLights();
+    this.signalScene.add(signalLight1, signalLight2);
 
     // post fx
     const renderPass = new RenderPass(this.scene, camera);
@@ -159,24 +163,19 @@ export default class App {
 
     // 1. INSTANCED MESH for signal
     iSignalMesh = new InstancedMesh2(
-      new BoxGeometry(0.25, 0.25, 0.25),
-      new MeshStandardMaterial({
-        //emissive: 0x444444,
-        //emissiveIntensity: 0.5,
-      }),
+      new BoxGeometry(0.5, 0.5, 0.5),
+      new MeshStandardMaterial(),
       { capacity: FFT_SIZE, createEntities: true, allowsEuler: true }
     );
-    iSignalMesh.position.set(SIGNAL_POSITION_X, 0, 0);
-    iSignalMesh.scale.set(1, 0.5, 1);
-    iSignalMesh.addInstances(FFT_SIZE, (obj, i) => {
-      iSignalMesh.setColorAt(obj.id, iSignalPalette[i]);
+    iSignalMesh.addInstances(FFT_SIZE, (obj) => {
+      iSignalMesh.setColorAt(obj.id, 0xffffff);
     });
 
     this.signalScene.add(iSignalMesh);
 
     // 2. FFT MESH
     iFFTMesh = new InstancedMesh2(
-      new BoxGeometry(0.45, 0.45, 0.45),
+      new BoxGeometry(0.75, 0.75, 0.75),
       new MeshStandardMaterial({
         color: 0xffffff,
         //emissive: 0xff2222,
@@ -233,7 +232,6 @@ export default class App {
 
     // get audio features
     const features = audioFeaturesExtractor.features(FFT_AUDIO_FEATURES);
-
     if (!features) return;
 
     // fill ffts spectrum buffers
@@ -254,8 +252,8 @@ export default class App {
 
     // make bloom reactive uh
     const [bloomEffect] = composer.passes[1].effects;
-    bloomEffect.intensity = lerp(0.5, 4, loudness);
-    bloomEffect.radius = lerp(0.5, 5.0, perceptualSharpness);
+    bloomEffect.intensity = lerp(0.5, 2.5, loudness);
+    bloomEffect.radius = lerp(0.5, 2.0, perceptualSharpness);
 
     // x -> frequency bins
     // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
@@ -272,9 +270,9 @@ export default class App {
       const fftValue = ffts[fftIndex][freqBin];
 
       obj.scale.set(
-        4 + fftValue,
-        4 + spectralKurtosis * 1,
-        4 + perceptualSpread
+        4.2 + fftValue,
+        4.2 + spectralKurtosis * 1,
+        4.2 + perceptualSpread
       );
 
       obj.position.set(
@@ -300,16 +298,17 @@ export default class App {
     if (!!signal && iSignalMesh) {
       iSignalMesh.updateInstances((obj, i) => {
         obj.position.set(
-          (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          -10 +(SIGNAL_X_SCALE * i) / FFT_SIZE,
           signal[i] * SIGNAL_SCALE,
           0
         );
 
-        /*  obj.rotation.set(
+        obj.rotation.y += 1
+        /* obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           perceptualSharpness,
           0
-        );  */
+        );   */
 
         /*   obj.scale.set(
           1 + spectralKurtosis * 2,
@@ -321,12 +320,30 @@ export default class App {
 
     controls.update(deltaTime);
 
-    /* 
-    if (iSignalMesh && signalCamera) {
-      renderer.render(this.signalScene, signalCamera);
-    } */
-
+    // 1. Main render - full viewport with FFT scene + post-processing
+    const { clientWidth, clientHeight } = renderer.domElement;
+    renderer.setViewport(0, 0, clientWidth, clientHeight);
+    renderer.setScissor(0, 0, clientWidth, clientHeight);
     composer.render();
+
+    // 2. Signal render - small viewport in bottom-right corner
+    if (iSignalMesh && signalCamera) {
+      const signalWidth = 400;
+      const signalHeight = 200;
+      const margin = 0;
+
+      const x = clientWidth - signalWidth - margin;
+      const y = margin;
+
+      renderer.setViewport(x, y, signalWidth, signalHeight);
+      renderer.setScissor(x, y, signalWidth, signalHeight);
+      renderer.setScissorTest(true);
+
+      // Render signal scene without post-processing
+      renderer.render(this.signalScene, signalCamera);
+      // Reset scissor test
+      renderer.setScissorTest(false);
+    }
 
     stats.update();
   }
