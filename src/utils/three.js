@@ -1,13 +1,24 @@
 export const dpr = Math.min(1.2, window.devicePixelRatio);
 
 export function needsResize({ renderer, composer }) {
-  const canvas = renderer.domElement;
-  const w = (canvas.clientWidth * dpr) | 0;
-  const h = (canvas.clientHeight * dpr) | 0;
-  const needResize = canvas.width !== w || canvas.height !== h;
+  const { clientWidth, clientHeight, width, height } = renderer.domElement;
+  const w = clientWidth;
+  const h = clientHeight;
+  const needResize = width !== w || height !== h;
   if (needResize) {
-    renderer.setSize(w, h, false);
     composer.setSize(w, h);
+    console.log("resize")
   }
   return needResize;
+}
+
+export function resizeCanvasToDisplaySize(canvas, composer) {
+  var width = canvas.clientWidth;
+  var height = canvas.clientHeight;
+  if (canvas.width != width |! canvas.height != height) {
+     canvas.width = width;
+     canvas.height = height;
+
+     composer.setSize(width, height)
+  }
 }

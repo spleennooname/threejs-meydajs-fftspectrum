@@ -5,7 +5,6 @@ import {
   startWith,
   first,
   scan,
-  withLatestFrom,
 } from "rxjs";
 
 export function pauseKey$(keyCode) {
