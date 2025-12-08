@@ -19,27 +19,27 @@
   "devDependencies": {
     "@originjs/vite-plugin-commonjs": "^1.0.3",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
-    "concurrently": "^7.2.1",
-    "eslint": "^8.16.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
     "eslint-watch": "^8.0.0",
-    "prettier": "^3.6.2",
-    "sass": "^1.52.1",
-    "vite": "^7.2.4"
+    "prettier": "^3.7.4",
+    "sass": "^1.94.2",
+    "vite": "^7.2.7"
   },
   "browserslist": [
     "> 0.25%, not ie 11, not op_mini all"
   ],
   "dependencies": {
-    "@three.ez/instanced-mesh": "^0.3.11",
+    "@three.ez/instanced-mesh": "^0.3.13",
     "camera-controls": "^3.1.2",
     "colormap": "^2.3.2",
-    "gsap": "^3.10.4",
+    "gsap": "^3.13.0",
     "meyda": "^5.6.3",
     "postprocessing": "^6.38.0",
-    "rxjs": "^7.5.5",
+    "rxjs": "^7.8.2",
     "stats.js": "^0.17.0",
     "three": "^0.181.2",
-    "tweakpane": "^3.0.8"
+    "tweakpane": "^4.0.5"
   },
   "volta": {
     "node": "22.21.1"
