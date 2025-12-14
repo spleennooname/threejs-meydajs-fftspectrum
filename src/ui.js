@@ -6,35 +6,40 @@ export function createGUI(params, audio) {
     expanded: true,
   });
 
-  gui.addInput(params, "amount", { min: 1, max: 6 });
-  gui.addInput(params, "xscale", { min: 30, max: 500 });
+  gui.addBinding(params, "amount", { min: 1, max: 6 });
+  gui.addBinding(params, "xscale", { min: 30, max: 500 });
 
   const audioFolder = gui.addFolder({
     title: "audio",
     expanded: true,
   });
 
-  audioFolder.addMonitor(audio, "loudness", {
+  audioFolder.addBinding(audio, "loudness", {
+    readonly: true,
     view: "graph",
     min: 0,
     max: 1,
   });
-  audioFolder.addMonitor(audio, "perceptualSpread", {
+  audioFolder.addBinding(audio, "perceptualSpread", {
+    readonly: true,
     view: "graph",
     min: 0,
     max: 1,
   });
-  audioFolder.addMonitor(audio, "perceptualSharpness", {
+  audioFolder.addBinding(audio, "perceptualSharpness", {
+    readonly: true,
     view: "graph",
     min: 0,
     max: 1,
   });
-  audioFolder.addMonitor(audio, "spectralFlatness", {
+  audioFolder.addBinding(audio, "spectralFlatness", {
+    readonly: true,
     view: "graph",
     min: 0,
     max: 1,
   });
-  audioFolder.addMonitor(audio, "spectralKurtosis", {
+  audioFolder.addBinding(audio, "spectralKurtosis", {
+    readonly: true,
     view: "graph",
     min: 0,
     max: 1,

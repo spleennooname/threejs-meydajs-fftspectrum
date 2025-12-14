@@ -16,7 +16,6 @@ import {
 
 import {
   Scene,
-  WebGLRenderer,
   MeshStandardMaterial,
   Color,
   BoxGeometry,
@@ -26,15 +25,13 @@ import {
 
 import { InstancedMesh2 } from "@three.ez/instanced-mesh";
 
-import { EffectComposer, RenderPass, EffectPass } from "postprocessing";
+import { RenderPass, EffectPass } from "postprocessing";
 
 import { getPalette, lerp } from "./utils";
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
 import { pauseKey$, clickButton$, setAnimationLoopWithPause } from "./utils/rx";
-
-import { dpr, needsResize, resizeCanvasToDisplaySize } from "./utils/three";
 
 import {
   FFT_SIZE,
@@ -54,7 +51,9 @@ import {
   createControls,
   createOrthographicCamera,
   createLights,
+  createPostComposer,
   createPostEffects,
+  createRenderer
 } from "./render";
 
 const SPACEBAR_KEY_CODE = 32;
@@ -72,13 +71,16 @@ const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
 const btn = document.querySelector("#cover");
 const canvas = document.querySelector("#canvas");
+const statsDom = document.querySelector("#stats");
 
 const stats = new Stats();
-document.querySelector("#stats").appendChild(stats.dom);
+statsDom.appendChild(stats.dom);
 
 const params = {
   amount: 5,
   xscale: 100,
+  trailDecay: 0.99,
+  trailPower: 100.0,
 };
 
 const audio = {
@@ -109,13 +111,7 @@ export default class App {
 
     this.clock = new Clock();
 
-    this.renderer = new WebGLRenderer({
-      canvas,
-      antialias: false,
-      alpha: true,
-      powerPreference: "high-performance",
-    });
-    this.renderer.setPixelRatio(dpr);
+    this.renderer = createRenderer(canvas);
 
     // controls
     this.controls = createControls(this.camera, canvas);
@@ -123,19 +119,19 @@ export default class App {
     // some lights;
     const [light1, light2] = createLights();
     this.scene.add(light1, light2);
-    
+
     // Add lights to signal scene as well
     const [signalLight1, signalLight2] = createLights();
     this.signalScene.add(signalLight1, signalLight2);
 
     // post fx
     const renderPass = new RenderPass(this.scene, this.camera);
-    const effectPass = new EffectPass(this.camera, ...createPostEffects());
+    const effectPass = new EffectPass(this.camera, ...createPostEffects(this.camera));
 
-    this.composer = new EffectComposer(this.renderer);
+    this.composer = createPostComposer(this.camera, this.renderer);
     this.composer.addPass(renderPass, 0);
     this.composer.addPass(effectPass, 1);
-    //this.composer.setSize(512, 512)
+
     /**  NUM_FFT_SNAPSHOTS fft snapshots x FFT_SIZE = 
      *   NUM_FFT_SNAPSHOTS arrays (size = FFT_SIZE )
      *  Ogni istanza i deve mappare a:
@@ -150,7 +146,7 @@ export default class App {
       new Color().fromArray(a)
     );
 
-   this.iFFTPalette = getPalette("viridis", FFT_SIZE / 2).map((a) =>
+    this.iFFTPalette = getPalette("viridis", FFT_SIZE / 2).map((a) =>
       new Color().fromArray(a)
     );
 
@@ -170,9 +166,7 @@ export default class App {
     this.iFFTMesh = new InstancedMesh2(
       new BoxGeometry(0.75, 0.75, 0.75),
       new MeshStandardMaterial({
-        color: 0xffffff,
-        //emissive: 0xff2222,
-        //emissiveIntensity: 0.3
+        color: 0xffffff
       }),
       {
         capacity: this.ffts.length * (FFT_SIZE / 2),
@@ -180,19 +174,23 @@ export default class App {
       }
     );
 
-    this.iFFTMesh.addInstances(this.ffts.length * (FFT_SIZE / 2));
+    this.iFFTMesh.addInstances(this.ffts.length * (FFT_SIZE / 2), (obj) => {
+      this.iFFTMesh.setOpacityAt(obj.id, 0.3);
+    });
 
     this.scene.add(this.iFFTMesh);
+
+    this.col = new Color();
 
     const resizeObserver = new ResizeObserver(() => this.resize());
     resizeObserver.observe(this.renderer.domElement);
   }
 
-  intro() {
+  async intro() {
     // cinema veritè
-    this.controls.rotateTo(MathUtils.degToRad(45), MathUtils.degToRad(55), true);
-    this.controls.dollyTo(40, true);
-    this.controls.truck(0, -30, true);
+    this.controls.rotateTo(MathUtils.degToRad(20), MathUtils.degToRad(90), true);
+    this.controls.dollyTo(80, true);
+    // this.controls.truck(50, -10, true);  
 
     gsap
       .timeline()
@@ -242,8 +240,8 @@ export default class App {
 
     // make bloom reactive uh
     const [bloomEffect] = this.composer.passes[1].effects;
-    bloomEffect.intensity = lerp(0.5, 2.5, loudness);
-    bloomEffect.radius = lerp(0.5, 2.0, perceptualSharpness);
+    bloomEffect.intensity = lerp(0.5, 2.75, loudness);
+    bloomEffect.radius = lerp(0.5, 2.25, perceptualSharpness);
 
     // x -> frequency bins
     // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
@@ -253,16 +251,23 @@ export default class App {
     // - Linear FFT bins would compress low frequencies into tiny visual space
     // - Log scale gives bass/mids/treble proportional visual representation
     // Formula: xScale * (1 + log10((freqBin + 1) / (FFT_SIZE / 2)))
+
     this.iFFTMesh.updateInstances((obj, i) => {
+
       const fftIndex = getFFTIndex(i);
 
       const freqBin = i % (FFT_SIZE / 2);
+
       const fftValue = this.ffts[fftIndex][freqBin];
 
+      // Trail decay factor: newest snapshot = 1.0, oldest snapshot fades out
+      const trailFactor = 1.0 - (fftIndex / NUM_FFT_SNAPSHOTS) * params.trailDecay;
+      const trailOpacity = Math.pow(trailFactor, params.trailPower); // configurable power for decay curve
+
       obj.scale.set(
-        4.2 + fftValue,
-        4.2 + spectralKurtosis * 1,
-        4.2 + perceptualSpread
+        (4 + fftValue) * trailFactor,
+        (4 + spectralKurtosis) * trailFactor,
+        (2 + perceptualSpread + spectralKurtosis) * trailFactor
       );
 
       obj.position.set(
@@ -271,15 +276,20 @@ export default class App {
         FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.0)
       );
 
-      // high opacity for intense frequencies
-      obj.opacity = Math.min(1, 0.1 + fftValue * 2.0);
+      // Combine base opacity with trail decay
+      const baseOpacity = 0.0;// Math.min(1, 0.1 + fftValue * 2.0);
+      // obj.opacity = 0//baseOpacity * trailOpacity;
 
-      // Interpolate color: red (low fftValue) to black (high fftValue)
-      const normalizedValue = Math.min(0, fftValue * 4.0);
-      const r = 1 - normalizedValue; // red component decreases as fftValue increases
-      const finalColor = new Color(r, 0, 0);
+      // Color trail effect: newer = green, older = blue/purple
+      const normalizedValue = lerp(0, 5, fftValue);
 
-      this.iFFTMesh.setColorAt(obj.id, finalColor);
+      const r = trailFactor;
+      const g = (1 - normalizedValue) * trailFactor;
+      const b = 1.2;//(1 - trailFactor) + normalizedValue * (1 - trailFactor); // blue for older snapshots
+      this.col.set(r, g, b);
+
+      this.iFFTMesh.setOpacityAt(obj.id, baseOpacity * trailOpacity);
+      this.iFFTMesh.setColorAt(obj.id, this.col);
     });
 
     // domain-time  via instancedgeometry
@@ -287,12 +297,12 @@ export default class App {
     if (!!signal && this.iSignalMesh) {
       this.iSignalMesh.updateInstances((obj, i) => {
         obj.position.set(
-          -10 +(SIGNAL_X_SCALE * i) / FFT_SIZE,
+          -10 + (SIGNAL_X_SCALE * i) / FFT_SIZE,
           signal[i] * SIGNAL_SCALE,
           0
         );
 
-        obj.rotation.y += 1
+        obj.rotation.y += 1;
         /* obj.rotation.set(
           (timestamp + loudness) * SIGNAL_ROTATION_SCALE,
           perceptualSharpness,
@@ -337,16 +347,16 @@ export default class App {
     stats.update();
   }
 
-  resize(){
-      const {clientWidth, clientHeight} = this.renderer.domElement;
+  resize() {
+    const { clientWidth, clientHeight } = this.renderer.domElement;
 
-      this.renderer.setSize(clientWidth, clientHeight, false); // dpr applied
-      this.composer.setSize(clientWidth, clientHeight);
+    this.renderer.setSize(clientWidth, clientHeight, false); // dpr applied
+    this.composer.setSize(clientWidth, clientHeight);
 
-      this.camera.aspect =clientWidth / clientHeight;
-      this.camera.updateProjectionMatrix();
+    this.camera.aspect = clientWidth / clientHeight;
+    this.camera.updateProjectionMatrix();
   }
-  
+
   /**
    * Main application entry point using RxJS observables
    *
@@ -381,7 +391,7 @@ export default class App {
         tap(() => {
           // init
           this.init();
-         
+
           // start render loop
           setAnimationLoopWithPause(this.renderer, this.render.bind(this), pause$);
 

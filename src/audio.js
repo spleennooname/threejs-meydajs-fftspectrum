@@ -1,12 +1,13 @@
 import { invlerp } from "./utils";
 
 // Audio configuration constants
-export const FFT_SIZE = 1024;
-export const NUM_FFT_SNAPSHOTS = 60;
+export const FFT_SIZE = 512;
+export const NUM_FFT_SNAPSHOTS = 90;
 
 // FFT grid visualization
-export const FFT_Y_OFFSET = -10;
-export const FFT_Z_BASE = -5;
+export const FFT_X_OFFSET = -60;
+export const FFT_Y_OFFSET = -25;
+export const FFT_Z_BASE = 0;
 
 export const FFT_AUDIO_FEATURES = [
   "perceptualSharpness",
@@ -30,24 +31,16 @@ export const getFFTs = (number, pointCount) => {
 };
 
 /**
- * Calculates X position with adjustable logarithmic scaling
+ * Calculates X position using logarithmic frequency distribution
+ * Provides more visual space for low frequencies (bass/mids) and compresses high frequencies
  * @param {number} freqBin - Frequency bin index (0 to FFT_SIZE/2 - 1)
- * @param {number} xScale - Scale multiplier for positioning
- * @param {number} logStrength - Controls log curve intensity (0=linear, 1=full log)
- * @param {number} offset - Minimum spacing offset
- * @returns {number} X position with adjustable logarithmic frequency scale
+ * @param {number} xscale - Scale multiplier for positioning
+ * @returns {number} X position with logarithmic frequency scale (bass spread, treble compressed)
  */
-export const getFrequencyXPosition = (
-  freqBin,
-  xscale,
-  logStrength = 0.4,
-  offset = 0.5
-) => {
-  /*   const linear = freqBin / (FFT_SIZE / 2);
-  const logarithmic = (Math.log10((freqBin + 1) / (FFT_SIZE / 2)) + 2.7) / 2.7;
-  const mixed = linear * (1 - logStrength) + logarithmic * logStrength */
-  //return  xScale * (offset + mixed * (1 - offset));
-  return xscale * (1 + Math.log10((freqBin + 1) / FFT_SIZE / 2));
+export const getFrequencyXPosition = (freqBin, xscale) => {
+  const normalizedFreq = freqBin / (FFT_SIZE / 2); // Normalize to 0-1 range
+  const logScale = Math.log10(normalizedFreq + 0.01) + 2; // Log scale + offset for positive values
+  return FFT_X_OFFSET + xscale * logScale / 2.1; // Scale and normalize output 0..1
 };
 
 /**
@@ -57,12 +50,8 @@ export const getFrequencyXPosition = (
  * @returns {number} FFT snapshot index (0 to NUM_FFT_SNAPSHOTS - 1)
  */
 export const getFFTIndex = (index) => {
-  // CORRECT formula (fixed from original bug):
-  // return Math.floor(index / (FFT_SIZE / 2));
-
-  // INCORRECT formula (kept for documentation of the bug):
-  // This was the original buggy version that only accessed first ~35 snapshots
-  return Math.floor(index / FFT_SIZE / 2);
+  // CORRECT formula:
+  return Math.floor(index / (FFT_SIZE / 2));
 };
 
 // process audio features for visualization

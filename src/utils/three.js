@@ -7,18 +7,18 @@ export function needsResize({ renderer, composer }) {
   const needResize = width !== w || height !== h;
   if (needResize) {
     composer.setSize(w, h);
-    console.log("resize")
+    console.log("resize");
   }
   return needResize;
 }
 
 export function resizeCanvasToDisplaySize(canvas, composer) {
-  var width = canvas.clientWidth;
-  var height = canvas.clientHeight;
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
   if (canvas.width != width |! canvas.height != height) {
-     canvas.width = width;
-     canvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
 
-     composer.setSize(width, height)
+    composer.setSize(width, height);
   }
 }

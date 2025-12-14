@@ -3,14 +3,18 @@ import {
   DirectionalLight,
   OrthographicCamera,
   HemisphereLight,
+  WebGLRenderer,
+  HalfFloatType,
 } from "three";
 
 import * as THREE from "three";
 
+import { dpr } from "./utils/three";
+
 import CameraControls from "camera-controls";
 CameraControls.install({ THREE: THREE });
 
-import { BloomEffect, ScanlineEffect, BlendFunction } from "postprocessing";
+import { BloomEffect, ScanlineEffect, BlendFunction, EffectComposer } from "postprocessing";
 
 const CAMERA_FOV = 50;
 const CAMERA_ASPECT = 4 / 3;
@@ -28,6 +32,24 @@ export function createCamera() {
     CAMERA_NEAR,
     CAMERA_FAR
   );
+}
+
+export function createRenderer(canvas) {
+  const renderer = new WebGLRenderer({
+    canvas,
+    antialias: false,
+    stencil: false,
+    depth: false,
+    alpha: true,
+    powerPreference: "high-performance",
+  });
+  renderer.setClearColor(0x000000, 1);
+  renderer.setPixelRatio(dpr);
+  //renderer.shadowMap.type = VSMShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
+  renderer.shadowMap.enabled = true;
+  return renderer;
 }
 
 /**
@@ -50,6 +72,7 @@ export function createControls(camera, canvas) {
   controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE; */
 
   const controls = new CameraControls(camera, canvas);
+  controls.draggingSmoothTime= 0.02;
 
   return controls;
 }
@@ -85,7 +108,13 @@ export function createLights() {
   return [hemiLight, directionalLight];
 }
 
-export function createPostEffects() {
+export function createPostComposer(camera, renderer){
+  return new EffectComposer(renderer, {
+    frameBufferType: HalfFloatType,
+    multisampling: 2
+  });
+}
+export function createPostEffects(_camera) {
   const bloomEffect = new BloomEffect({
     luminanceThreshold: 0.0,
     intensity: 1.4,
@@ -95,14 +124,15 @@ export function createPostEffects() {
   });
 
   const scanlineEffect = new ScanlineEffect({
-    //blendFunction: BlendFunction.DST,
-    density: 1.5,
+    blendFunction: BlendFunction.OVERLAY,
+    density: 1.25,
   });
 
-  /*   ssaoEffect = new SSAOEffect(camera, undefined, {
-      intensity: 10.0,
-      radius: 0.1,
-      bias: 0.01,
-    }); */
+  /*  const ssaoEffect = new SSAOEffect(camera, undefined, {
+    intensity: 10.0,
+    radius: 0.1,
+    bias: 0.01,
+  }) */; 
+
   return [bloomEffect, scanlineEffect];
 }
