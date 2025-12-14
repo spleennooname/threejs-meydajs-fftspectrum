@@ -11,7 +11,7 @@
     "vite": "vite --host",
     "lint": "npx eslint --color src/",
     "lint:fix": "npx eslint --fix --color src/",
-    "lint:watch": "npx esw -w --fix --color src/",
+    "lint:watch": "nodemon --watch src --ext js --exec \"npm run lint:fix\"",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "dev": "concurrently \"npm:lint:watch\" \"npm:vite\""
@@ -21,7 +21,7 @@
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "concurrently": "^9.2.1",
     "eslint": "^8.57.1",
-    "eslint-watch": "^8.0.0",
+    "nodemon": "^3.1.11",
     "prettier": "^3.7.4",
     "sass": "^1.96.0",
     "vite": "^7.2.7"
