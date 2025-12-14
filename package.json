@@ -9,9 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "vite": "vite --host",
-    "lint": "npx eslint --color src/index.js",
-    "lint:fix": "npx eslint --fix --color src/index.js",
-    "lint:watch": "npx esw -w --fix --color src/index.js",
+    "lint": "npx eslint --color src/",
+    "lint:fix": "npx eslint --fix --color src/",
+    "lint:watch": "npx esw -w --fix --color src/",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
     "dev": "concurrently \"npm:lint:watch\" \"npm:vite\""
@@ -20,10 +20,10 @@
     "@originjs/vite-plugin-commonjs": "^1.0.3",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "concurrently": "^9.2.1",
-    "eslint": "^9.39.1",
+    "eslint": "^8.57.1",
     "eslint-watch": "^8.0.0",
     "prettier": "^3.7.4",
-    "sass": "^1.94.2",
+    "sass": "^1.96.0",
     "vite": "^7.2.7"
   },
   "browserslist": [
@@ -33,12 +33,12 @@
     "@three.ez/instanced-mesh": "^0.3.13",
     "camera-controls": "^3.1.2",
     "colormap": "^2.3.2",
-    "gsap": "^3.13.0",
+    "gsap": "^3.14.2",
     "meyda": "^5.6.3",
     "postprocessing": "^6.38.0",
     "rxjs": "^7.8.2",
     "stats.js": "^0.17.0",
-    "three": "^0.181.2",
+    "three": "^0.182.0",
     "tweakpane": "^4.0.5"
   },
   "volta": {
