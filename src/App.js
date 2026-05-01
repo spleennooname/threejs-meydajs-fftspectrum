@@ -362,6 +362,8 @@ export default class App {
       .pipe(
         catchError((error) => {
           console.error("Error:", error);
+          gsap.to("#cover .play", { duration: 0.3, autoAlpha: 0 });
+          gsap.to(".alert", { duration: 0.8, autoAlpha: 1, ease: "power2.out", delay: 0.3 });
           return EMPTY;
         })
       )

@@ -108,6 +108,7 @@ export class AudioFeaturesExtractor {
     default:
       console.error(PREFIX, error.message || error);
     }
+    throw error;
   }
 
   /**

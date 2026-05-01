@@ -67,6 +67,21 @@ body {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
+.alert {
+  position: absolute;
+  display: flex;
+  left: 0;
+  top: 0;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  align-items: center;
+  opacity: 0;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #ff4444;
+}
+
 .cover pre {
   position: absolute;
   left: 50%;
@@ -123,6 +138,8 @@ body {
 .play .t .fa {
   font-size: 20px;
 }
+
+
 
 #stats {
   position: fixed;
