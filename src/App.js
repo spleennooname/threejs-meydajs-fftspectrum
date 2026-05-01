@@ -2,61 +2,61 @@ import gsap from "gsap";
 
 import Stats from "stats.js";
 
-import { createGUI } from "./ui";
+import { createGUI } from "./controls";
 
 import {
-  tap,
-  concat,
-  from,
+  EMPTY,
   catchError,
   combineLatest,
+  concat,
+  from,
   retry,
-  EMPTY,
+  tap,
 } from "rxjs";
 
 import {
-  Scene,
-  MeshStandardMaterial,
-  Color,
   BoxGeometry,
-  MathUtils,
   Clock,
+  Color,
+  MathUtils,
+  MeshStandardMaterial,
+  Scene,
 } from "three";
 
 import { InstancedMesh2 } from "@three.ez/instanced-mesh";
 
-import { RenderPass, EffectPass } from "postprocessing";
+import { EffectPass, RenderPass } from "postprocessing";
 
 import { getPalette, lerp } from "./utils";
 
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
-import { pauseKey$, clickButton$, setAnimationLoopWithPause } from "./utils/rx";
+import { clickButton$, pauseKey$, setAnimationLoopWithPause } from "./utils/rx";
 
 import {
+  FFT_AUDIO_FEATURES,
   FFT_SIZE,
-  NUM_FFT_SNAPSHOTS,
   FFT_Y_OFFSET,
   FFT_Z_BASE,
   FFT_Z_STEP_MULTIPLIER,
-  getFFTs,
-  FFT_AUDIO_FEATURES,
+  NUM_FFT_SNAPSHOTS,
   getFFTIndex,
-  processAudioFeatures,
+  getFFTs,
   getFrequencyXPosition,
+  processAudioFeatures,
 } from "./audio";
 
 import {
   createCamera,
   createControls,
-  createOrthographicCamera,
   createLights,
   createPostComposer,
   createPostEffects,
-  createRenderer
+  createRenderer,
 } from "./render";
 
 const SPACEBAR_KEY_CODE = 32;
+const HALF_FFT_SIZE = FFT_SIZE / 2;
 
 // Camera configuration constants
 const CAMERA_POSITION_Y = -5;
@@ -64,8 +64,8 @@ const CAMERA_POSITION_Z = 100;
 
 // Signal visualization constants
 const SIGNAL_SCALE = 30;
-const SIGNAL_X_SCALE = 15;
-const SIGNAL_POSITION_X = -8;
+const SIGNAL_X_SCALE = 35;
+const SIGNAL_Y_OFFSET = 35;
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -78,8 +78,10 @@ statsDom.appendChild(stats.dom);
 
 const params = {
   amount: 5,
-  xscale: 100,
-  trailDecay: 0.99,
+  xscale: 140,
+  xpower: 1,
+  xstep: 3,
+  trailDecay: 0.97,
   trailPower: 100.0,
 };
 
@@ -97,17 +99,11 @@ export default class App {
   init() {
 
     this.scene = new Scene();
-    this.signalScene = new Scene();
 
     // main camera
     this.camera = createCamera();
     this.camera.position.set(0, CAMERA_POSITION_Y, CAMERA_POSITION_Z);
     this.camera.lookAt(0, 0, 0);
-
-    // separate orthographic camera for signal
-    this.signalCamera = createOrthographicCamera(-20, 20, 15, -15, 0.1, 1000);
-    this.signalCamera.position.set(SIGNAL_POSITION_X, 0, 10);
-    this.signalCamera.lookAt(SIGNAL_POSITION_X, 0, 0);
 
     this.clock = new Clock();
 
@@ -119,10 +115,6 @@ export default class App {
     // some lights;
     const [light1, light2] = createLights();
     this.scene.add(light1, light2);
-
-    // Add lights to signal scene as well
-    const [signalLight1, signalLight2] = createLights();
-    this.signalScene.add(signalLight1, signalLight2);
 
     // post fx
     const renderPass = new RenderPass(this.scene, this.camera);
@@ -136,17 +128,17 @@ export default class App {
      *   NUM_FFT_SNAPSHOTS arrays (size = FFT_SIZE )
      *  Ogni istanza i deve mappare a:
         - fftIndex: quale snapshot (0.. NUM_FFT_SNAPSHOTS-1)
-        - freqBin: quale frequency bin (0..FFT_SIZE/2)
+        - freqIndexBin: quale frequency bin (0..FFT_SIZE/2)
      */
     this.ffts = getFFTs(NUM_FFT_SNAPSHOTS, FFT_SIZE);
 
-    console.log(this.ffts.length * (FFT_SIZE / 2));
+    console.log(this.ffts.length * HALF_FFT_SIZE);
 
     this.iSignalPalette = getPalette("bone", FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
-    this.iFFTPalette = getPalette("viridis", FFT_SIZE / 2).map((a) =>
+    this.iFFTPalette = getPalette("viridis", HALF_FFT_SIZE).map((a) =>
       new Color().fromArray(a)
     );
 
@@ -160,21 +152,19 @@ export default class App {
       this.iSignalMesh.setColorAt(obj.id, 0xffffff);
     });
 
-    this.signalScene.add(this.iSignalMesh);
+    this.scene.add(this.iSignalMesh);
 
     // 2. FFT MESH
     this.iFFTMesh = new InstancedMesh2(
       new BoxGeometry(0.75, 0.75, 0.75),
-      new MeshStandardMaterial({
-        color: 0xffffff
-      }),
+      new MeshStandardMaterial({ color: 0xffffff, transparent: true }),
       {
-        capacity: this.ffts.length * (FFT_SIZE / 2),
+        capacity: this.ffts.length * HALF_FFT_SIZE,
         allowsEuler: true,
       }
     );
 
-    this.iFFTMesh.addInstances(this.ffts.length * (FFT_SIZE / 2), (obj) => {
+    this.iFFTMesh.addInstances(this.ffts.length * HALF_FFT_SIZE, (obj) => {
       this.iFFTMesh.setOpacityAt(obj.id, 0.3);
     });
 
@@ -188,9 +178,9 @@ export default class App {
 
   async intro() {
     // cinema veritè
-    this.controls.rotateTo(MathUtils.degToRad(20), MathUtils.degToRad(90), true);
+    this.controls.rotateTo(MathUtils.degToRad(30), MathUtils.degToRad(70), true);
     this.controls.dollyTo(80, true);
-    // this.controls.truck(50, -10, true);  
+    this.controls.truck(20, -10, true);  
 
     gsap
       .timeline()
@@ -241,7 +231,7 @@ export default class App {
     // make bloom reactive uh
     const [bloomEffect] = this.composer.passes[1].effects;
     bloomEffect.intensity = lerp(0.5, 2.75, loudness);
-    bloomEffect.radius = lerp(0.5, 2.25, perceptualSharpness);
+    bloomEffect.radius = lerp(0.5, 2.75, perceptualSharpness);
 
     // x -> frequency bins
     // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
@@ -250,55 +240,47 @@ export default class App {
     // - Standard in audio: piano keys, musical scales, EQ bands, spectrum analyzers
     // - Linear FFT bins would compress low frequencies into tiny visual space
     // - Log scale gives bass/mids/treble proportional visual representation
-    // Formula: xScale * (1 + log10((freqBin + 1) / (FFT_SIZE / 2)))
+    // Formula: xScale * (1 + log10((freqIndexBin + 1) / (FFT_SIZE / 2)))
 
     this.iFFTMesh.updateInstances((obj, i) => {
 
       const fftIndex = getFFTIndex(i);
 
-      const freqBin = i % (FFT_SIZE / 2);
+      const freqIndexBin = i % HALF_FFT_SIZE;
 
-      const fftValue = this.ffts[fftIndex][freqBin];
+      const fftValue = this.ffts[fftIndex][freqIndexBin];
 
       // Trail decay factor: newest snapshot = 1.0, oldest snapshot fades out
       const trailFactor = 1.0 - (fftIndex / NUM_FFT_SNAPSHOTS) * params.trailDecay;
-      const trailOpacity = Math.pow(trailFactor, params.trailPower); // configurable power for decay curve
+   
+      // decay curve for trail opacity: adjust exponent for sharper or softer trails
+      const trailOpacity = Math.pow(trailFactor, 10);
 
       obj.scale.set(
-        (4 + fftValue) * trailFactor,
-        (4 + spectralKurtosis) * trailFactor,
-        (2 + perceptualSpread + spectralKurtosis) * trailFactor
+        (4 + fftValue), 
+        (4 + spectralKurtosis), 
+        (2 + perceptualSpread + spectralKurtosis)
       );
 
       obj.position.set(
-        getFrequencyXPosition(freqBin, params.xscale),
+        getFrequencyXPosition(freqIndexBin, params.xscale, params.xpower, params.xstep),
         FFT_Y_OFFSET + fftValue * (params.amount * loudness),
-        FFT_Z_BASE - fftIndex * (FFT_Z_STEP_MULTIPLIER * 1.0)
+        FFT_Z_BASE - fftIndex * FFT_Z_STEP_MULTIPLIER
       );
 
-      // Combine base opacity with trail decay
-      const baseOpacity = 0.0;// Math.min(1, 0.1 + fftValue * 2.0);
-      // obj.opacity = 0//baseOpacity * trailOpacity;
+      this.col.set(trailFactor, (1 - lerp(0, 5, fftValue)) * trailFactor, 1.5);
 
-      // Color trail effect: newer = green, older = blue/purple
-      const normalizedValue = lerp(0, 5, fftValue);
-
-      const r = trailFactor;
-      const g = (1 - normalizedValue) * trailFactor;
-      const b = 1.2;//(1 - trailFactor) + normalizedValue * (1 - trailFactor); // blue for older snapshots
-      this.col.set(r, g, b);
-
-      this.iFFTMesh.setOpacityAt(obj.id, baseOpacity * trailOpacity);
+      this.iFFTMesh.setOpacityAt(obj.id, trailOpacity );
       this.iFFTMesh.setColorAt(obj.id, this.col);
     });
 
     // domain-time  via instancedgeometry
     const signal = audioFeaturesExtractor.signal();
-    if (!!signal && this.iSignalMesh) {
+    if (signal && this.iSignalMesh) {
       this.iSignalMesh.updateInstances((obj, i) => {
         obj.position.set(
-          -10 + (SIGNAL_X_SCALE * i) / FFT_SIZE,
-          signal[i] * SIGNAL_SCALE,
+          -SIGNAL_X_SCALE / 2 + (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          SIGNAL_Y_OFFSET + signal[i] * SIGNAL_SCALE,
           0
         );
 
@@ -319,30 +301,7 @@ export default class App {
 
     this.controls.update(deltaTime);
 
-    // 1. Main render - full viewport with FFT scene + post-processing
-    const { clientWidth, clientHeight } = this.renderer.domElement;
-    this.renderer.setViewport(0, 0, clientWidth, clientHeight);
-    this.renderer.setScissor(0, 0, clientWidth, clientHeight);
     this.composer.render();
-
-    // 2. Signal render - small viewport in bottom-right corner
-    if (this.iSignalMesh && this.signalCamera) {
-      const signalWidth = 400;
-      const signalHeight = 200;
-      const margin = 0;
-
-      const x = clientWidth - signalWidth - margin;
-      const y = margin;
-
-      this.renderer.setViewport(x, y, signalWidth, signalHeight);
-      this.renderer.setScissor(x, y, signalWidth, signalHeight);
-      this.renderer.setScissorTest(true);
-
-      // Render signal scene without post-processing
-      this.renderer.render(this.signalScene, this.signalCamera);
-      // Reset scissor test
-      this.renderer.setScissorTest(false);
-    }
 
     stats.update();
   }

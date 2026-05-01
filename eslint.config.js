@@ -22,7 +22,7 @@ module.exports = [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_'
       }],
-      'no-console': 'warn',
+      'no-console': 'off',
       'prefer-const': 'error',
       'no-var': 'error',
       'semi': ['error', 'always'],

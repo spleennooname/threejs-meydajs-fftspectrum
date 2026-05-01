@@ -31,16 +31,19 @@ export const getFFTs = (number, pointCount) => {
 };
 
 /**
- * Calculates X position using logarithmic frequency distribution
- * Provides more visual space for low frequencies (bass/mids) and compresses high frequencies
+ * Calculates X position with adjustable frequency distribution
  * @param {number} freqBin - Frequency bin index (0 to FFT_SIZE/2 - 1)
  * @param {number} xscale - Scale multiplier for positioning
- * @returns {number} X position with logarithmic frequency scale (bass spread, treble compressed)
+ * @param {number} xpower - Exponent controlling distribution curve:
+ *   < 1 (e.g. 0.5): expands bass, compresses treble (perceptual/log-like)
+ *   = 1: linear
+ *   > 1: compresses bass, expands treble
+ * @param {number} xstep - Additional per-bin offset for explicit separation between instances
+ * @returns {number} X position
  */
-export const getFrequencyXPosition = (freqBin, xscale) => {
-  const normalizedFreq = freqBin / (FFT_SIZE / 2); // Normalize to 0-1 range
-  const logScale = Math.log10(normalizedFreq + 0.01) + 2; // Log scale + offset for positive values
-  return FFT_X_OFFSET + xscale * logScale / 2.1; // Scale and normalize output 0..1
+export const getFrequencyXPosition = (freqBin, xscale, xpower = 1.0, xstep = 0) => {
+  const normalizedFreq = freqBin / (FFT_SIZE / 2);
+  return FFT_X_OFFSET + xscale * Math.pow(normalizedFreq, xpower) + freqBin * xstep;
 };
 
 /**
@@ -49,10 +52,7 @@ export const getFrequencyXPosition = (freqBin, xscale) => {
  * @param {number} index - Instance index (0 to NUM_FFT_SNAPSHOTS * FFT_SIZE/2 - 1)
  * @returns {number} FFT snapshot index (0 to NUM_FFT_SNAPSHOTS - 1)
  */
-export const getFFTIndex = (index) => {
-  // CORRECT formula:
-  return Math.floor(index / (FFT_SIZE / 2));
-};
+export const getFFTIndex = (index) => Math.floor(index / (FFT_SIZE / 2));
 
 // process audio features for visualization
 export const processAudioFeatures = (features) => {

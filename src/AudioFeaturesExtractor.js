@@ -13,6 +13,8 @@ export const AUDIO_CONSTRAINS = {
   },
 };
 
+const PREFIX = "AudioFeaturesExtractor:";
+
 const AUDIO_FEATURES = [
   "amplitudeSpectrum",
   "spectralCentroid",
@@ -93,16 +95,18 @@ export class AudioFeaturesExtractor {
    * @param {Error} error - Error object from getUserMedia or audio processing
    */
   errorStream(error) {
-    if (error.name === "NotAllowedError") {
-      console.error("AudioFeaturesExtractor: Microphone access denied by user");
-    } else if (error.name === "NotFoundError") {
-      console.error("AudioFeaturesExtractor: No microphone device found");
-    } else if (error.name === "NotSupportedError") {
-      console.error(
-        "AudioFeaturesExtractor: getUserMedia not supported in this browser"
-      );
-    } else {
-      console.error("AudioFeaturesExtractor:", error.message || error);
+    switch (error.name) {
+    case "NotAllowedError":
+      console.error(PREFIX, "Microphone access denied by user");
+      break;
+    case "NotFoundError":
+      console.error(PREFIX, "No microphone device found");
+      break;
+    case "NotSupportedError":
+      console.error(PREFIX, "getUserMedia not supported in this browser");
+      break;
+    default:
+      console.error(PREFIX, error.message || error);
     }
   }
 

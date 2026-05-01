@@ -21,6 +21,9 @@ const CAMERA_ASPECT = 4 / 3;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e4;
 
+const CONTROLS_MIN_DISTANCE = 5;
+const CONTROLS_MAX_DISTANCE = 32;
+
 // Light configuration constants
 const LIGHT_POSITION_Y = 1;
 const LIGHT_POSITION_Z = 1;
@@ -40,15 +43,14 @@ export function createRenderer(canvas) {
     antialias: false,
     stencil: false,
     depth: false,
-    alpha: true,
+    alpha: false,
     powerPreference: "high-performance",
   });
   renderer.setClearColor(0x000000, 1);
   renderer.setPixelRatio(dpr);
-  //renderer.shadowMap.type = VSMShadowMap;
   renderer.shadowMap.autoUpdate = false;
   renderer.shadowMap.needsUpdate = true;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = false;
   return renderer;
 }
 
@@ -72,7 +74,9 @@ export function createControls(camera, canvas) {
   controls.maxPolarAngle = CONTROLS_MAX_POLAR_ANGLE; */
 
   const controls = new CameraControls(camera, canvas);
-  controls.draggingSmoothTime= 0.02;
+  controls.draggingSmoothTime = 0.02;
+  controls.minDistance = CONTROLS_MIN_DISTANCE;
+  controls.maxDistance = CONTROLS_MAX_DISTANCE;
 
   return controls;
 }
@@ -126,13 +130,7 @@ export function createPostEffects(_camera) {
   const scanlineEffect = new ScanlineEffect({
     blendFunction: BlendFunction.OVERLAY,
     density: 1.25,
-  });
+  }); 
 
-  /*  const ssaoEffect = new SSAOEffect(camera, undefined, {
-    intensity: 10.0,
-    radius: 0.1,
-    bias: 0.01,
-  }) */; 
-
-  return [bloomEffect, scanlineEffect];
+  return [bloomEffect,  scanlineEffect];
 }

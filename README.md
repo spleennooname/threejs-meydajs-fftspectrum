@@ -10,7 +10,7 @@
 
 ```
 
-![version](https://img.shields.io/badge/version-1.1.1-green) ![threejs](https://img.shields.io/badge/three.js-0.182.0-green) ![meyda](https://img.shields.io/badge/meyda-v5.6.3-green) ![rxjs](https://img.shields.io/badge/rxjs-v7.8.2-green) ![vite](https://img.shields.io/badge/vite-v7.2.7-blue) ![eslint](https://img.shields.io/badge/eslint-v8.57.1-purple) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-22.21.1-green) ![tweakpane](https://img.shields.io/badge/tweakpane-v4.0.5-orange) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
+![version](https://img.shields.io/badge/version-1.1.1-green) ![threejs](https://img.shields.io/badge/three.js-0.184.0-green) ![meyda](https://img.shields.io/badge/meyda-v5.6.3-green) ![rxjs](https://img.shields.io/badge/rxjs-v7.8.2-green) ![vite](https://img.shields.io/badge/vite-v7.2.7-blue) ![eslint](https://img.shields.io/badge/eslint-v8.57.1-purple) ![build](https://img.shields.io/badge/build-passing-brightgreen) ![code style](https://img.shields.io/badge/code%20style-prettier-ff69b4) ![node](https://img.shields.io/badge/node-22.21.1-green) ![tweakpane](https://img.shields.io/badge/tweakpane-v4.0.5-orange) ![audio api](https://img.shields.io/badge/Web%20Audio%20API-required-orange)
 
 [![demo 720p - chrome osx](https://img.youtube.com/vi/Afveg4cTy_g/0.jpg)](https://www.youtube.com/watch?v=Afveg4cTy_g)
 
