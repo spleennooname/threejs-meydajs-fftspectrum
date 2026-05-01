@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] - 2026-05-01
+
+- update deps
+- add mic selector
+- other optimizations
+  
 ## [1.1.1] - 2025-11-27
 
 - other refactor activity
@@ -27,7 +33,6 @@
 ### Added
 
 - Prettier configuration for consistent code formatting
-- Enhanced CLAUDE.md with detailed architecture documentation
 - Build status and dependency badges in README
 - Comprehensive error handling in audio initialization
 - Performance optimizations for real-time rendering
