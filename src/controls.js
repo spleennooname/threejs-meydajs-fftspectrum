@@ -1,6 +1,21 @@
 import { Pane } from "tweakpane";
 
-export function createGUI(params, audio) {
+function populateMicSelector(folder, params, onChange) {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  navigator.mediaDevices.enumerateDevices().then((devices) => {
+    const mics = devices.filter((d) => d.kind === "audioinput");
+    const options = mics.map((d, i) => ({ text: d.label || `Microphone ${i + 1}`, value: d.deviceId }));
+    if (!options.length) options.push({ text: "No device found", value: "" });
+    params.micDeviceId = options[0].value;
+    folder.addBinding(params, "micDeviceId", { label: "microphone", options })
+      .on("change", ({ value }) => onChange(value));
+  }).catch(() => {
+    folder.addBinding(params, "micDeviceId", { label: "microphone", options: [{ text: "No device found", value: "" }] })
+      .on("change", ({ value }) => onChange(value));
+  });
+}
+
+export function createGUI(params, audio, onMicChange) {
   const gui = new Pane({
     title: `fftspectrum · ${__BUILD_VERSION__}`,
     expanded: true,
@@ -15,6 +30,8 @@ export function createGUI(params, audio) {
     title: "audio",
     expanded: true,
   });
+
+  populateMicSelector(audioFolder, params, onMicChange);
 
   audioFolder.addBinding(audio, "loudness", {
     readonly: true,

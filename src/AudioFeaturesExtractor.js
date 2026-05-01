@@ -42,7 +42,7 @@ export class AudioFeaturesExtractor {
    * @param {number} options.bufferSize - Meyda buffer size for feature extraction
    * @returns {Promise<MediaStream>} Promise resolving to audio stream
    */
-  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = FFT_SIZE }) {
+  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = FFT_SIZE, deviceId = "" }) {
     // check for modern MediaDevices API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(
@@ -52,8 +52,12 @@ export class AudioFeaturesExtractor {
       );
     }
 
+    const effectiveConstrains = deviceId
+      ? { ...constrains, audio: { ...constrains.audio, deviceId: { exact: deviceId } } }
+      : constrains;
+
     return navigator.mediaDevices
-      .getUserMedia(constrains)
+      .getUserMedia(effectiveConstrains)
       .then((stream) => this.successStream({ stream, bufferSize }))
       .catch((err) => this.errorStream(err));
   }
@@ -109,6 +113,12 @@ export class AudioFeaturesExtractor {
       console.error(PREFIX, error.message || error);
     }
     throw error;
+  }
+
+  stop() {
+    if (this.meyda) { this.meyda.stop(); this.meyda = null; }
+    if (this.audioContext) { this.audioContext.close(); this.audioContext = null; }
+    this.source = null;
   }
 
   /**

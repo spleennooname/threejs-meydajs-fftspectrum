@@ -2,8 +2,6 @@ import gsap from "gsap";
 
 import Stats from "stats.js";
 
-import { createGUI } from "./controls";
-
 import {
   EMPTY,
   catchError,
@@ -22,13 +20,11 @@ import {
   MeshStandardMaterial,
   Scene,
 } from "three";
-
 import { InstancedMesh2 } from "@three.ez/instanced-mesh";
-
 import { EffectPass, RenderPass } from "postprocessing";
 
+import { createGUI } from "./controls";
 import { getPalette, lerp } from "./utils";
-
 import { AudioFeaturesExtractor } from "./AudioFeaturesExtractor";
 
 import { clickButton$, pauseKey$, setAnimationLoopWithPause } from "./utils/rx";
@@ -83,6 +79,7 @@ const params = {
   xstep: 3,
   trailDecay: 0.97,
   trailPower: 100.0,
+  micDeviceId: "",
 };
 
 const audio = {
@@ -93,9 +90,14 @@ const audio = {
   spectralKurtosis: 0,
 };
 
-createGUI(params, audio);
-
+createGUI(params, audio, (deviceId) => {
+  audioFeaturesExtractor.stop();
+  audioFeaturesExtractor
+    .meydaPromise({ bufferSize: FFT_SIZE, deviceId })
+    .catch((err) => console.error("Mic re-init error:", err));
+});
 export default class App {
+
   init() {
 
     this.scene = new Scene();
@@ -309,7 +311,7 @@ export default class App {
   resize() {
     const { clientWidth, clientHeight } = this.renderer.domElement;
 
-    this.renderer.setSize(clientWidth, clientHeight, false); // dpr applied
+    this.renderer.setSize(clientWidth, clientHeight, false); 
     this.composer.setSize(clientWidth, clientHeight);
 
     this.camera.aspect = clientWidth / clientHeight;
@@ -341,7 +343,7 @@ export default class App {
     return concat(
       combineLatest([
         clickButton$(btn),
-        from(audioFeaturesExtractor.meydaPromise({ fftSize: FFT_SIZE })),
+        from(audioFeaturesExtractor.meydaPromise({ bufferSize: FFT_SIZE, deviceId: params.micDeviceId })),
       ]).pipe(
         retry({
           count: 2,

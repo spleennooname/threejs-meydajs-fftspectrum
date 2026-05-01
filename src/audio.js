@@ -54,6 +54,8 @@ export const getFrequencyXPosition = (freqBin, xscale, xpower = 1.0, xstep = 0) 
  */
 export const getFFTIndex = (index) => Math.floor(index / (FFT_SIZE / 2));
 
+const safe = (v, fallback = 0) => (Number.isFinite(v) ? v : fallback);
+
 // process audio features for visualization
 export const processAudioFeatures = (features) => {
   const {
@@ -65,10 +67,10 @@ export const processAudioFeatures = (features) => {
   } = features;
 
   return {
-    loudness: invlerp(0, 50, loudness.total),
-    spectralKurtosis: invlerp(5, 40, spectralKurtosis),
-    perceptualSharpness,
-    perceptualSpread,
-    spectralFlatness,
+    loudness: safe(invlerp(0, 50, loudness.total)),
+    spectralKurtosis: safe(invlerp(5, 40, spectralKurtosis)),
+    perceptualSharpness: safe(perceptualSharpness),
+    perceptualSpread: safe(perceptualSpread),
+    spectralFlatness: safe(spectralFlatness),
   };
 };
