@@ -16,8 +16,8 @@
 
 [demo](https://fft-spectrum.netlify.app)
 
-longstoryshort: the microphone detects the audio, _meydajs_ extracts metrics features used to drive  _threejs_ webgl stuff.
-
+longstoryshort: microphone reads the audio, and _Meydajs_ extracts psychoacoustic metrics to control an effect in _Three.js_.
+ 
 - Start project with `npm run dev`
 - open another tab with youtube music / bring any sound source closer to the microphone
 - ✨Magic✨
