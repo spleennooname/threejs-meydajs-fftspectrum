@@ -1,5 +1,4 @@
 import * as Meyda from "meyda";
-import { FFT_SIZE } from "./audio";
 
 export const AUDIO_CONSTRAINS = {
   audio: {
@@ -42,7 +41,7 @@ export class AudioFeaturesExtractor {
    * @param {number} options.bufferSize - Meyda buffer size for feature extraction
    * @returns {Promise<MediaStream>} Promise resolving to audio stream
    */
-  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = FFT_SIZE, deviceId = "" }) {
+  meydaPromise({ constrains = AUDIO_CONSTRAINS, bufferSize = 512, deviceId = "" }) {
     // check for modern MediaDevices API support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(
@@ -52,13 +51,21 @@ export class AudioFeaturesExtractor {
       );
     }
 
+    this.audioContext = new AudioContext();
+
     const effectiveConstrains = deviceId
       ? { ...constrains, audio: { ...constrains.audio, deviceId: { exact: deviceId } } }
       : constrains;
 
     return navigator.mediaDevices
       .getUserMedia(effectiveConstrains)
-      .then((stream) => this.successStream({ stream, bufferSize }))
+      .then((stream) => {
+        if (stream.active) {
+          this.successStream({ stream, bufferSize });
+        } else {
+          throw "Mic stream not active";
+        }
+      })
       .catch((err) => this.errorStream(err));
   }
 
@@ -71,7 +78,10 @@ export class AudioFeaturesExtractor {
    * @returns {MediaStream} The processed audio stream
    */
   successStream({ stream, bufferSize }) {
-    this.audioContext = new AudioContext();
+
+    if (this.audioContext.state === "suspended") {
+      this.audioContext.resume();
+    }
 
     const audioTrack = stream.getAudioTracks()[0];
 
@@ -80,6 +90,7 @@ export class AudioFeaturesExtractor {
     }
 
     this.source = this.audioContext.createMediaStreamSource(stream);
+
     this.meyda = Meyda.createMeydaAnalyzer({
       audioContext: this.audioContext,
       source: this.source,
@@ -90,6 +101,7 @@ export class AudioFeaturesExtractor {
       bufferSize,
     });
     this.meyda.start();
+
     return stream;
   }
 

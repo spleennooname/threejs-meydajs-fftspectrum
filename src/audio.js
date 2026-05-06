@@ -1,11 +1,11 @@
 import { invlerp } from "./utils";
 
 // Audio configuration constants
-export const FFT_SIZE = 512;
-export const NUM_FFT_SNAPSHOTS = 90;
+export const FFT_SIZE = 1024;
+export const NUM_FFT_SNAPSHOTS = 20;
 
 // FFT grid visualization
-export const FFT_X_OFFSET = -60;
+export const FFT_X_OFFSET = -80;
 export const FFT_Y_OFFSET = -25;
 export const FFT_Z_BASE = 0;
 
@@ -19,7 +19,7 @@ export const FFT_AUDIO_FEATURES = [
 ];
 
 // fft bar spacing
-export const FFT_Z_STEP_MULTIPLIER = 10;
+export const FFT_Z_STEP_MULTIPLIER = 5;
 
 // return ffts matrix filled
 export const getFFTs = (number, pointCount) => {

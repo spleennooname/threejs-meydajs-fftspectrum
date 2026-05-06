@@ -77,8 +77,8 @@ const params = {
   xscale: 140,
   xpower: 1,
   xstep: 3,
-  trailDecay: 0.97,
-  trailPower: 100.0,
+  trailDecay: 0.50,
+  trailPower: 20.0,
   micDeviceId: "",
 };
 
@@ -108,6 +108,7 @@ export default class App {
     this.camera.lookAt(0, 0, 0);
 
     this.clock = new Clock();
+    this.col = new Color();
 
     this.renderer = createRenderer(canvas);
 
@@ -172,7 +173,7 @@ export default class App {
 
     this.scene.add(this.iFFTMesh);
 
-    this.col = new Color();
+   
 
     const resizeObserver = new ResizeObserver(() => this.resize());
     resizeObserver.observe(this.renderer.domElement);

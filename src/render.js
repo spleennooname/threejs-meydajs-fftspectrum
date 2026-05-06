@@ -1,7 +1,7 @@
 import {
   PerspectiveCamera,
   DirectionalLight,
-  OrthographicCamera,
+  //OrthographicCamera,
   HemisphereLight,
   WebGLRenderer,
   HalfFloatType,
@@ -40,7 +40,7 @@ export function createCamera() {
 export function createRenderer(canvas) {
   const renderer = new WebGLRenderer({
     canvas,
-    antialias: false,
+    antialias: true,
     stencil: false,
     depth: false,
     alpha: false,
@@ -49,7 +49,7 @@ export function createRenderer(canvas) {
   renderer.setClearColor(0x000000, 1);
   renderer.setPixelRatio(dpr);
   renderer.shadowMap.autoUpdate = false;
-  renderer.shadowMap.needsUpdate = true;
+  renderer.shadowMap.needsUpdate = false;
   renderer.shadowMap.enabled = false;
   return renderer;
 }
@@ -92,7 +92,7 @@ export function createControls(camera, canvas) {
  * @param {number} far - Far clipping plane
  * @returns {OrthographicCamera} Configured orthographic camera
  */
-export function createOrthographicCamera(
+/* export function createOrthographicCamera(
   left = -10,
   right = 10,
   top = 10,
@@ -101,10 +101,9 @@ export function createOrthographicCamera(
   far = 1000
 ) {
   return new OrthographicCamera(left, right, top, bottom, near, far);
-}
+} */
 
 export function createLights() {
-  // some lights
   const hemiLight = new HemisphereLight(0xffffff, 0x222222, 1.5);
   const directionalLight = new DirectionalLight(0xffffff, 2.0);
   directionalLight.position.set(0, LIGHT_POSITION_Y, LIGHT_POSITION_Z);
@@ -123,13 +122,13 @@ export function createPostEffects(_camera) {
     luminanceThreshold: 0.0,
     intensity: 1.4,
     radius: 1.0,
-    mipmapBlur: true,
+    mipmapBlur: false,
     blendFunction: BlendFunction.SCREEN,
   });
 
   const scanlineEffect = new ScanlineEffect({
     blendFunction: BlendFunction.OVERLAY,
-    density: 1.25,
+    density: 1.20,
   }); 
 
   return [bloomEffect,  scanlineEffect];
