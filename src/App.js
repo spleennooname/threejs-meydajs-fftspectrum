@@ -123,7 +123,7 @@ export default class App {
     const renderPass = new RenderPass(this.scene, this.camera);
     const effectPass = new EffectPass(this.camera, ...createPostEffects(this.camera));
 
-    this.composer = createPostComposer(this.camera, this.renderer);
+    this.composer = createPostComposer(this.renderer);
     this.composer.addPass(renderPass, 0);
     this.composer.addPass(effectPass, 1);
 

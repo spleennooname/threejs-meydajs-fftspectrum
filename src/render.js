@@ -1,10 +1,8 @@
 import {
   PerspectiveCamera,
   DirectionalLight,
-  //OrthographicCamera,
   HemisphereLight,
   WebGLRenderer,
-  HalfFloatType,
 } from "three";
 
 import * as THREE from "three";
@@ -40,7 +38,7 @@ export function createCamera() {
 export function createRenderer(canvas) {
   const renderer = new WebGLRenderer({
     canvas,
-    antialias: true,
+    antialias: false,
     stencil: false,
     depth: false,
     alpha: false,
@@ -81,28 +79,6 @@ export function createControls(camera, canvas) {
   return controls;
 }
 
-/**
- * Creates an orthographic camera for signal visualization
- *
- * @param {number} left - Left boundary
- * @param {number} right - Right boundary
- * @param {number} top - Top boundary
- * @param {number} bottom - Bottom boundary
- * @param {number} near - Near clipping plane
- * @param {number} far - Far clipping plane
- * @returns {OrthographicCamera} Configured orthographic camera
- */
-/* export function createOrthographicCamera(
-  left = -10,
-  right = 10,
-  top = 10,
-  bottom = -10,
-  near = 0.1,
-  far = 1000
-) {
-  return new OrthographicCamera(left, right, top, bottom, near, far);
-} */
-
 export function createLights() {
   const hemiLight = new HemisphereLight(0xffffff, 0x222222, 1.5);
   const directionalLight = new DirectionalLight(0xffffff, 2.0);
@@ -111,12 +87,10 @@ export function createLights() {
   return [hemiLight, directionalLight];
 }
 
-export function createPostComposer(camera, renderer){
-  return new EffectComposer(renderer, {
-    frameBufferType: HalfFloatType,
-    multisampling: 2
-  });
+export function createPostComposer(renderer){
+  return new EffectComposer(renderer);
 }
+
 export function createPostEffects(_camera) {
   const bloomEffect = new BloomEffect({
     luminanceThreshold: 0.0,

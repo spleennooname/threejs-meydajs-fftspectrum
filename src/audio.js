@@ -2,7 +2,7 @@ import { invlerp } from "./utils";
 
 // Audio configuration constants
 export const FFT_SIZE = 1024;
-export const NUM_FFT_SNAPSHOTS = 20;
+export const NUM_FFT_SNAPSHOTS = 40;
 
 // FFT grid visualization
 export const FFT_X_OFFSET = -80;
