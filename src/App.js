@@ -61,7 +61,7 @@ const CAMERA_POSITION_Z = 100;
 // Signal visualization constants
 const SIGNAL_SCALE = 30;
 const SIGNAL_X_SCALE = 35;
-const SIGNAL_Y_OFFSET = 35;
+const SIGNAL_Y_OFFSET = 10;
 
 const audioFeaturesExtractor = new AudioFeaturesExtractor();
 
@@ -99,7 +99,6 @@ createGUI(params, audio, (deviceId) => {
 export default class App {
 
   init() {
-
     this.scene = new Scene();
 
     // main camera
@@ -115,7 +114,6 @@ export default class App {
     // controls
     this.controls = createControls(this.camera, canvas);
 
-    // some lights;
     const [light1, light2] = createLights();
     this.scene.add(light1, light2);
 
@@ -127,11 +125,11 @@ export default class App {
     this.composer.addPass(renderPass, 0);
     this.composer.addPass(effectPass, 1);
 
-    /**  NUM_FFT_SNAPSHOTS fft snapshots x FFT_SIZE = 
-     *   NUM_FFT_SNAPSHOTS arrays (size = FFT_SIZE )
-     *  Ogni istanza i deve mappare a:
-        - fftIndex: quale snapshot (0.. NUM_FFT_SNAPSHOTS-1)
-        - freqIndexBin: quale frequency bin (0..FFT_SIZE/2)
+    /**  NUM_FFT_SNAPSHOTS fft snapshots x FFT_SIZE =
+     *   NUM_FFT_SNAPSHOTS arrays (size = FFT_SIZE)
+     *  Each instance i maps to:
+     *   - fftIndex: which snapshot (0..NUM_FFT_SNAPSHOTS-1)
+     *   - freqIndexBin: which frequency bin (0..FFT_SIZE/2)
      */
     this.ffts = getFFTs(NUM_FFT_SNAPSHOTS, FFT_SIZE);
 
@@ -172,15 +170,16 @@ export default class App {
     });
 
     this.scene.add(this.iFFTMesh);
-
    
-
     const resizeObserver = new ResizeObserver(() => this.resize());
     resizeObserver.observe(this.renderer.domElement);
   }
 
+  /**
+   * Animates camera to opening position and fades out the cover overlay.
+   */
   async intro() {
-    // cinema veritè
+    // initial dramatic camera sweep to reveal the scene
     this.controls.rotateTo(MathUtils.degToRad(30), MathUtils.degToRad(70), true);
     this.controls.dollyTo(80, true);
     this.controls.truck(20, -10, true);  
@@ -211,17 +210,14 @@ export default class App {
 
     const deltaTime = this.clock.getDelta();
 
-    // get audio features
     const features = audioFeaturesExtractor.features(FFT_AUDIO_FEATURES);
     if (!features) return;
 
-    // fill ffts spectrum buffers
+    // shift new spectrum into the circular FFT snapshot buffer
     const { amplitudeSpectrum } = features;
-
     this.ffts.pop();
     this.ffts.unshift(amplitudeSpectrum);
 
-    // get audio features
     Object.assign(audio, processAudioFeatures(features));
 
     const {
@@ -231,7 +227,7 @@ export default class App {
       perceptualSpread,
     } = audio;
 
-    // make bloom reactive uh
+    // drive bloom intensity and radius from audio features
     const [bloomEffect] = this.composer.passes[1].effects;
     bloomEffect.intensity = lerp(0.5, 2.75, loudness);
     bloomEffect.radius = lerp(0.5, 2.75, perceptualSharpness);
@@ -277,14 +273,14 @@ export default class App {
       this.iFFTMesh.setColorAt(obj.id, this.col);
     });
 
-    // domain-time  via instancedgeometry
+    // time-domain waveform via instanced geometry
     const signal = audioFeaturesExtractor.signal();
     if (signal && this.iSignalMesh) {
       this.iSignalMesh.updateInstances((obj, i) => {
         obj.position.set(
-          -SIGNAL_X_SCALE / 2 + (SIGNAL_X_SCALE * i) / FFT_SIZE,
+          -0 -SIGNAL_X_SCALE / 2 + (SIGNAL_X_SCALE * i) / FFT_SIZE,
           SIGNAL_Y_OFFSET + signal[i] * SIGNAL_SCALE,
-          0
+          -40
         );
 
         obj.rotation.y += 1;
@@ -309,6 +305,7 @@ export default class App {
     stats.update();
   }
 
+  /** Handles canvas resize: updates renderer, composer, and camera projection. */
   resize() {
     const { clientWidth, clientHeight } = this.renderer.domElement;
 
@@ -331,7 +328,7 @@ export default class App {
    * 4. Continuous render loop with pause feature
    */
   run$() {
-    // fadein cover
+    // fade in cover button before user interaction
     gsap.timeline().to("#cover", {
       duration: 2,
       autoAlpha: 1,
@@ -340,7 +337,7 @@ export default class App {
 
     const pause$ = pauseKey$(SPACEBAR_KEY_CODE); // Spacebar
 
-    // combine observables
+    // wait for both button click and Meyda init before starting
     return concat(
       combineLatest([
         clickButton$(btn),
@@ -351,13 +348,8 @@ export default class App {
           delay: 1000,
         }),
         tap(() => {
-          // init
           this.init();
-
-          // start render loop
           setAnimationLoopWithPause(this.renderer, this.render.bind(this), pause$);
-
-          // intro camera
           this.intro();
         })
       )

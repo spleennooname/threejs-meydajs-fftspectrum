@@ -19,8 +19,8 @@ const CAMERA_ASPECT = 4 / 3;
 const CAMERA_NEAR = 0.1;
 const CAMERA_FAR = 1e4;
 
-const CONTROLS_MIN_DISTANCE = 5;
-const CONTROLS_MAX_DISTANCE = 32;
+const CONTROLS_MIN_DISTANCE = 3;
+const CONTROLS_MAX_DISTANCE = 40;
 
 // Light configuration constants
 const LIGHT_POSITION_Y = 1;
