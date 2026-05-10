@@ -75,7 +75,7 @@ statsDom.appendChild(stats.dom);
 const params = {
   amount: 5,
   xscale: 140,
-  xpower: 1,
+  xpower: 0.5,
   xstep: 3,
   trailDecay: 0.50,
   trailPower: 20.0,
@@ -232,14 +232,10 @@ export default class App {
     bloomEffect.intensity = lerp(0.5, 2.75, loudness);
     bloomEffect.radius = lerp(0.5, 2.75, perceptualSharpness);
 
-    // x -> frequency bins
-    // Use logarithmic scale (Math.log10) to mirror human perception of frequency:
-    // - Human hearing is logarithmic: we perceive frequency ratios, not differences
-    // - Octaves (2:1 ratio) sound equally spaced regardless of absolute frequency
-    // - Standard in audio: piano keys, musical scales, EQ bands, spectrum analyzers
-    // - Linear FFT bins would compress low frequencies into tiny visual space
-    // - Log scale gives bass/mids/treble proportional visual representation
-    // Formula: xScale * (1 + log10((freqIndexBin + 1) / (FFT_SIZE / 2)))
+    // x -> frequency bins mapped via power curve (Math.pow(normalizedFreq, xpower))
+    // Math.log10 avoided: log(0) = -Infinity requires offset hacks and isn't user-controllable.
+    // Math.pow with xpower < 1 gives log-like compression (expands bass, compresses treble)
+    // while staying well-defined at 0 and tweakable live via Tweakpane.
 
     this.iFFTMesh.updateInstances((obj, i) => {
 
